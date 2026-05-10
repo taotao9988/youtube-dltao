@@ -24,13 +24,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(line_buffering=True)
 
-# 兼容本地 Windows 和云端 Linux
-import tempfile
-if os.environ.get('RENDER'):
-    # Render 云端：用 /tmp 目录（ ephemeral，但下载完成后立即发送给用户）
-    DOWNLOAD_DIR = Path('/tmp/ytdl_downloads')
-else:
-    DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
+DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 # cookies 源文件路径
@@ -40,25 +34,24 @@ _COOKIES_SRC = Path(__file__).parent / 'cookies.txt'
 def _get_working_cookies_path():
     """
     返回 yt-dlp 可读取的 cookies 文件路径。
-    复制到 C:\yt_cookies.txt（无空格、无短路径问题）。
+    尝试复制到 TEMP 目录（无空格路径），失败则用原路径。
     """
     if not _COOKIES_SRC.exists():
         return None
 
     import shutil
-    dst = Path('C:/yt_cookies.txt')
+    import tempfile
+    tmp_cookies = Path(tempfile.gettempdir()) / 'yt_dlp_cookies.txt'
     try:
-        shutil.copy(str(_COOKIES_SRC), str(dst))
-        with open(dst, 'r', encoding='utf-8', errors='ignore') as f:
-            first = f.readline()
-            if first.startswith('# ') or first.startswith('# Netscape'):
-                print('[cookies] C:/yt_cookies.txt', flush=True)
-                return str(dst)
-            else:
-                print('[cookies] 格式异常: ' + first[:30], flush=True)
+        shutil.copy(str(_COOKIES_SRC), str(tmp_cookies))
+        with open(tmp_cookies, 'r', encoding='utf-8', errors='ignore') as f:
+            if f.readline().startswith('# '):
+                print('[cookies] 使用临时副本: ' + str(tmp_cookies), flush=True)
+                return str(tmp_cookies)
     except Exception as e:
-        print('[cookies] 复制失败: ' + str(e), flush=True)
+        print('[cookies] 复制到临时目录失败: ' + str(e), flush=True)
 
+    print('[cookies] 使用原路径: ' + str(_COOKIES_SRC), flush=True)
     return str(_COOKIES_SRC)
 
 
@@ -83,16 +76,25 @@ def get_ydl_opts():
         'age_limit': 21,
         'geo_bypass': True,
         'socket_timeout': 60,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['web', 'web_embedded', 'ios', 'android'],
+            }
+        },
+        'format_sort': ['quality', 'res', 'fps', 'hdr:12', 'vcodec:avc'],
     }
 
     # deno（用于绕过 bot 检测）
     deno_path = _find_deno()
     if deno_path:
         os.environ['YTDLP_JS_RUNTIME'] = deno_path
-        os.environ['PATH'] = os.path.dirname(deno_path) + os.pathsep + os.environ.get('PATH', '')
+        deno_dir = os.path.dirname(deno_path)
+        env_path = os.environ.get('PATH', '')
+        if deno_dir not in env_path:
+            os.environ['PATH'] = deno_dir + os.pathsep + env_path
         print('[deno] found: ' + deno_path, flush=True)
     else:
-        print('[deno] NOT found - JS challenge may fail', flush=True)
+        print('[deno] NOT found - bot check may fail', flush=True)
 
     # cookies
     cookies_path = _get_working_cookies_path()
@@ -101,14 +103,6 @@ def get_ydl_opts():
         print('[cookies] loaded: ' + cookies_path, flush=True)
     else:
         print('[cookies] 未找到 cookies.txt', flush=True)
-
-    # 强制使用 web 客户端，避免自动降级到 tv/android
-    opts['extractor_args'] = {
-        'youtube': {
-            'player_client': ['web'],
-            'player_skip': [],
-        }
-    }
 
     return opts
 
@@ -121,11 +115,7 @@ def get_video_info(url):
         info = ydl.extract_info(url, download=False)
 
     all_formats = info.get('formats', [])
-    print('[get_video_info] 共 ' + str(len(all_formats)) + ' 个原始格式，开始过滤...', flush=True)
-
-    # 调试：打印前5个格式的详细信息
-    for i, f in enumerate(all_formats[:5]):
-        print('  fmt[' + str(i) + ']: id=' + str(f.get('format_id')) + ' height=' + str(f.get('height')) + ' vcodec=' + str(f.get('vcodec')), flush=True)
+    print('[get_video_info] 共 ' + str(len(all_formats)) + ' 个原始格式', flush=True)
 
     # 按 (height, fps, filesize) 选每个高度下的最佳格式
     best = {}
@@ -179,25 +169,6 @@ def get_video_info(url):
 
     formats.sort(key=lambda x: x['height'], reverse=True)
 
-    # 强制追加 1080p 和 720p（如果尚未存在），确保前端始终显示这两个选项
-    existing_heights = {f['height'] for f in formats}
-    forced = []
-    if 1080 not in existing_heights:
-        forced.append({'height': 1080, 'label': '1080p 高清', 'format_id': '1080p'})
-    if 720 not in existing_heights:
-        forced.append({'height': 720, 'label': '720p 高清', 'format_id': '720p'})
-    # 按高度倒序插入到正确位置
-    for entry in forced:
-        formats.append({
-            'format_id': entry['format_id'],
-            'height': entry['height'],
-            'ext': 'mp4',
-            'label': entry['label'],
-            'size_mb': 0,
-            'fps': 30,
-        })
-    formats.sort(key=lambda x: x['height'], reverse=True)
-
     # 附加「最佳质量」选项
     formats.append({
         'format_id': 'bestvideo+bestaudio/best',
@@ -221,24 +192,14 @@ def get_video_info(url):
 
 
 def pick_format(format_id):
-    """根据前端传来的 format_id 生成 yt-dlp format 字符串
-    始终用 /best 兜底，确保格式不存在时自动降级到可用格式
-    """
+    """根据前端传来的 format_id 生成 yt-dlp format 字符串"""
     try:
         if format_id == 'bestvideo+bestaudio/best':
             return 'bestvideo+bestaudio/best'
         if isinstance(format_id, str) and format_id.isdigit():
-            # 纯数字 format_id（如 '137'），直接用作 yt-dlp format 选择器
-            return format_id + '+bestaudio/best'
-        # 处理 '1080p'、'720p' 等格式
-        s = str(format_id).replace('p', '').replace('K', '')
-        # 处理 '4K' → 2160
-        if '4' in str(format_id) and 'K' in str(format_id):
-            height = 2160
-        else:
-            height = int(s)
-        # 用 /best 兜底，格式不存在时自动降级
-        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/bestvideo+bestaudio/best'
+            return format_id + '+bestaudio/best[height<=' + format_id + ']/best'
+        height = int(str(format_id).replace('p', ''))
+        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/best'
     except (ValueError, TypeError):
         return 'bestvideo+bestaudio/best'
 
@@ -410,12 +371,10 @@ def api_download_file(task_id):
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5050))
     print('=' * 50, flush=True)
     print('  YouTube 视频下载工具已启动', flush=True)
-    print('  http://localhost:' + str(port), flush=True)
+    print('  http://localhost:5050', flush=True)
     print('  yt-dlp: ' + yt_dlp.version.__version__, flush=True)
     print('  cookies.txt:', _COOKIES_SRC.exists(), flush=True)
-    print('  RENDER env:', os.environ.get('RENDER', 'not set'), flush=True)
     print('=' * 50, flush=True)
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)
