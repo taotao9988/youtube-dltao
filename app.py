@@ -195,20 +195,20 @@ def get_video_info(url):
 
 
 def pick_format(format_id):
-    """根据前端传来的 format_id 生成 yt-dlp format 字符串"""
+    """根据前端传来的 format_id 生成 yt-dlp format 字符串（不合并，无需 ffmpeg）"""
     try:
         if format_id == 'bestvideo+bestaudio/best':
-            return 'bestvideo+bestaudio/best'
+            return 'best[ext=mp4]/best'
         if isinstance(format_id, str) and format_id.isdigit():
-            return format_id + '+bestaudio/best[height<=' + format_id + ']/best'
+            return 'best[height<=' + format_id + '][ext=mp4]/best[height<=' + format_id + ']/best'
         s = str(format_id).replace('p', '').replace('K', '')
         if '4' in str(format_id) and 'K' in str(format_id):
             height = 2160
         else:
             height = int(s)
-        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/bestvideo+bestaudio/best'
+        return 'best[height<=' + str(height) + '][ext=mp4]/best[height<=' + str(height) + ']/best'
     except (ValueError, TypeError):
-        return 'bestvideo+bestaudio/best'
+        return 'best[ext=mp4]/best'
 
 
 def download_task(task_id, url, format_id, title):
@@ -241,7 +241,6 @@ def download_task(task_id, url, format_id, title):
         'format': fmt,
         'outtmpl': output_path + '.%(ext)s',
         'progress_hooks': [progress_hook],
-        'merge_output_format': 'mp4',
     })
 
     try:
