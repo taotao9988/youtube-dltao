@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: youtube-dl
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "python app.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: RENDER
+        value: "true"

@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube 视频下载器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero {
+      width: 100%;
+      text-align: center;
+      padding: 60px 20px 30px;
+    }
+    .hero-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .hero-logo svg { width: 52px; height: 52px; }
+    .hero h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #ff4e50, #fc913a, #f9d423);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      color: rgba(255,255,255,0.55);
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+
+    .card {
+      width: min(740px, 96vw);
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 24px;
+      padding: 36px;
+      margin-bottom: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    /* Cookie 状态条 */
+    .cookie-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+      font-size: 0.82rem;
+    }
+    .cookie-bar.ready {
+      background: rgba(56,239,125,0.1);
+      border: 1px solid rgba(56,239,125,0.25);
+    }
+    .cookie-bar.missing {
+      background: rgba(252,145,58,0.1);
+      border: 1px solid rgba(252,145,58,0.25);
+    }
+    .cookie-bar .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .cookie-bar.ready .dot { background: #38ef7d; }
+    .cookie-bar.missing .dot { background: #fc913a; }
+    .cookie-bar .msg { flex: 1; color: rgba(255,255,255,0.6); }
+    .btn-cookie {
+      background: rgba(252,145,58,0.2);
+      color: #fc913a;
+      border: 1px solid rgba(252,145,58,0.4);
+      border-radius: 8px;
+      padding: 5px 14px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+    .btn-cookie:hover { background: rgba(252,145,58,0.35); }
+    .btn-cookie.ready { background: rgba(56,239,125,0.2); color: #38ef7d; border-color: rgba(56,239,125,0.4); }
+    .btn-cookie.ready:hover { background: rgba(56,239,125,0.35); }
+
+    /* 输入区 */
+    .input-row { display: flex; gap: 12px; }
+    .url-input {
+      flex: 1;
+      background: rgba(255,255,255,0.1);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 14px 18px;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .url-input::placeholder { color: rgba(255,255,255,0.35); }
+    .url-input:focus { border-color: #fc913a; }
+    .btn-fetch {
+      background: linear-gradient(135deg, #ff4e50, #fc913a);
+      border: none;
+      border-radius: 14px;
+      padding: 14px 26px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 4px 20px rgba(252,145,58,0.4);
+    }
+    .btn-fetch:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-fetch:active { transform: translateY(0); }
+    .btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .tips {
+      display: flex; gap: 16px; margin-top: 16px; flex-wrap: wrap;
+    }
+    .tip-tag {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.07); border-radius: 20px;
+      padding: 6px 14px; font-size: 0.8rem; color: rgba(255,255,255,0.5);
+    }
+
+    /* 视频信息 */
+    #info-section { display: none; margin-top: 28px; }
+    .video-meta { display: flex; gap: 18px; align-items: flex-start; }
+    .thumb-wrap {
+      flex-shrink: 0; width: 160px; height: 90px;
+      border-radius: 12px; overflow: hidden; background: rgba(255,255,255,0.05);
+    }
+    .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .meta-text { flex: 1; min-width: 0; }
+    .video-title {
+      font-size: 1rem; font-weight: 700; line-height: 1.4; margin-bottom: 8px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .meta-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .meta-badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.78rem; color: rgba(255,255,255,0.5);
+    }
+
+    .section-title {
+      font-size: 0.85rem; font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin: 22px 0 12px;
+    }
+
+    .formats-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;
+    }
+    .format-card {
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px; padding: 12px 14px;
+      cursor: pointer; transition: all 0.18s; position: relative;
+    }
+    .format-card:hover { border-color: rgba(252,145,58,0.5); background: rgba(252,145,58,0.08); }
+    .format-card.selected { border-color: #fc913a; background: rgba(252,145,58,0.15); }
+    .format-card.selected::after {
+      content: '✓'; position: absolute; top: 8px; right: 10px;
+      color: #fc913a; font-weight: 700; font-size: 0.85rem;
+    }
+    .fmt-label { font-size: 0.92rem; font-weight: 700; margin-bottom: 4px; }
+    .fmt-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); }
+    .fmt-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #ff4e50, #fc913a);
+      color: #fff; font-size: 0.6rem; font-weight: 700;
+      padding: 1px 6px; border-radius: 4px; margin-left: 4px;
+    }
+
+    .btn-download {
+      width: 100%; margin-top: 20px;
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      border: none; border-radius: 14px; padding: 15px;
+      color: #fff; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 4px 20px rgba(56,239,125,0.35);
+      letter-spacing: 0.5px;
+    }
+    .btn-download:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-download:active { transform: translateY(0); }
+    .btn-download:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    /* 进度 */
+    #progress-section { display: none; margin-top: 22px; }
+    .progress-wrap {
+      background: rgba(255,255,255,0.06); border-radius: 14px; padding: 20px 22px;
+    }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .progress-status { font-size: 0.9rem; font-weight: 600; }
+    .progress-pct { font-size: 1.1rem; font-weight: 800; color: #38ef7d; }
+    .progress-bar-bg { height: 8px; background: rgba(255,255,255,0.1); border-radius: 999px; overflow: hidden; }
+    .progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg, #11998e, #38ef7d);
+      border-radius: 999px; transition: width 0.4s ease; width: 0%;
+    }
+    .progress-info { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.78rem; color: rgba(255,255,255,0.4); }
+
+    /* 完成 */
+    #done-section { display: none; margin-top: 22px; }
+    .done-box {
+      background: rgba(56,239,125,0.08); border: 1.5px solid rgba(56,239,125,0.25);
+      border-radius: 14px; padding: 20px 22px; text-align: center;
+    }
+    .done-icon { font-size: 2.4rem; margin-bottom: 8px; }
+    .done-title { font-size: 1rem; font-weight: 700; color: #38ef7d; margin-bottom: 6px; }
+    .done-sub { font-size: 0.82rem; color: rgba(255,255,255,0.45); margin-bottom: 16px; }
+    .btn-save {
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      border: none; border-radius: 12px; padding: 12px 30px;
+      color: #fff; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s;
+      text-decoration: none; display: inline-block;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-reset {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.2);
+      border-radius: 12px; padding: 11px 24px;
+      color: rgba(255,255,255,0.6); font-size: 0.9rem; cursor: pointer;
+      margin-left: 12px; transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-reset:hover { border-color: rgba(255,255,255,0.4); color: #fff; }
+
+    .error-box {
+      background: rgba(255,78,80,0.1); border: 1.5px solid rgba(255,78,80,0.3);
+      border-radius: 12px; padding: 14px 18px;
+      font-size: 0.88rem; color: #ff8080; margin-top: 14px; display: none;
+    }
+
+    /* 弹窗 */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center;
+      z-index: 999; backdrop-filter: blur(4px);
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: #1e1e2e; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px; padding: 32px; width: min(520px, 92vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    .modal h2 { font-size: 1.2rem; margin-bottom: 6px; }
+    .modal .sub { color: rgba(255,255,255,0.45); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.6; }
+    .modal .steps-box { margin: 16px 0; }
+    .modal .step-line {
+      display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start;
+    }
+    .modal .step-num {
+      width: 28px; height: 28px; flex-shrink: 0;
+      border-radius: 50%; background: linear-gradient(135deg, #ff4e50, #fc913a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700;
+    }
+    .modal .step-txt { font-size: 0.85rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
+    .modal .step-txt strong { color: #fff; }
+    .upload-area {
+      border: 2px dashed rgba(255,255,255,0.2); border-radius: 14px;
+      padding: 28px; text-align: center; margin: 18px 0;
+      transition: border-color 0.2s, background 0.2s; cursor: pointer;
+    }
+    .upload-area:hover { border-color: rgba(252,145,58,0.5); background: rgba(252,145,58,0.05); }
+    .upload-area.drag-over { border-color: #38ef7d; background: rgba(56,239,125,0.08); }
+    .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+    .upload-txt { font-size: 0.88rem; color: rgba(255,255,255,0.5); }
+    .upload-txt strong { color: #fc913a; }
+    .modal-actions { display: flex; gap: 12px; margin-top: 18px; }
+    .btn-modal-cancel {
+      flex: 1; padding: 12px; border-radius: 12px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      background: transparent; color: rgba(255,255,255,0.6);
+      font-size: 0.9rem; cursor: pointer; transition: border-color 0.2s;
+    }
+    .btn-modal-cancel:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+    .btn-modal-ok {
+      flex: 1; padding: 12px; border-radius: 12px;
+      border: none; background: linear-gradient(135deg, #ff4e50, #fc913a);
+      color: #fff; font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-modal-ok:hover { opacity: 0.85; }
+    .btn-modal-ok:disabled { opacity: 0.5; cursor: not-allowed; }
+    .upload-status { font-size: 0.82rem; margin-top: 12px; min-height: 20px; }
+    .upload-status.ok { color: #38ef7d; }
+    .upload-status.err { color: #ff8080; }
+
+    .how-card {
+      width: min(740px, 96vw);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px; padding: 28px 32px; margin-bottom: 40px;
+    }
+    .how-title {
+      font-size: 0.9rem; font-weight: 700;
+      color: rgba(255,255,255,0.5); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    @media (max-width: 500px) { .steps { grid-template-columns: 1fr; } }
+    .step { text-align: center; padding: 16px 10px; }
+    .step-num {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #ff4e50, #fc913a);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.9rem; margin: 0 auto 10px;
+    }
+    .step-text { font-size: 0.82rem; color: rgba(255,255,255,0.5); line-height: 1.5; }
+
+    footer { color: rgba(255,255,255,0.2); font-size: 0.75rem; text-align: center; padding-bottom: 30px; }
+    .hidden-input { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="hero-logo">
+      <svg viewBox="0 0 52 52" fill="none"><rect width="52" height="52" rx="14" fill="#FF0000"/>
+        <path d="M38.5 20.5C38.5 20.5 38.2 18.5 37.3 17.6C36.2 16.4 34.9 16.4 34.3 16.3C30.2 16 24 16 24 16H24C24 16 17.8 16 13.7 16.3C13.1 16.4 11.8 16.4 10.7 17.6C9.8 18.5 9.5 20.5 9.5 20.5S9.2 22.8 9.2 25.1V27.2C9.2 29.5 9.5 31.8 9.5 31.8C9.5 31.8 9.8 33.8 10.7 34.7C11.8 35.9 13.3 35.9 14 36C16.4 36.2 24 36.3 24 36.3C24 36.3 30.2 36.3 34.3 36C34.9 35.9 36.2 35.9 37.3 34.7C38.2 33.8 38.5 31.8 38.5 31.8C38.5 31.8 38.8 29.5 38.8 27.2V25.1C38.8 22.8 38.5 20.5 38.5 20.5ZM21.5 30V20.5L30.5 25.3L21.5 30Z" fill="white"/>
+      </svg>
+      <h1>YouTube 下载器</h1>
+    </div>
+    <p>输入视频链接，一键下载高清视频到本地</p>
+  </div>
+
+  <div class="card">
+    <!-- Cookie 状态条 -->
+    <div class="cookie-bar missing" id="cookieBar">
+      <div class="dot"></div>
+      <span class="msg" id="cookieMsg">未检测到 Cookies — 年龄限制视频需要上传 Cookies</span>
+      <button class="btn-cookie" id="cookieBtn" onclick="openCookieModal()">上传 Cookies</button>
+    </div>
+
+    <div class="input-row">
+      <input class="url-input" id="urlInput" type="text"
+             placeholder="粘贴 YouTube 视频链接，例如 https://youtu.be/xxxx"
+             autocomplete="off" spellcheck="false" />
+      <button class="btn-fetch" id="fetchBtn" onclick="fetchInfo()">解析视频</button>
+    </div>
+
+    <div class="tips">
+      <span class="tip-tag">🎬 支持所有 YouTube 视频</span>
+      <span class="tip-tag">🔊 含音频自动合并</span>
+      <span class="tip-tag">💾 MP4 格式输出</span>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- 视频信息 -->
+    <div id="info-section">
+      <div class="video-meta">
+        <div class="thumb-wrap"><img id="thumbImg" src="" alt="thumbnail" /></div>
+        <div class="meta-text">
+          <div class="video-title" id="videoTitle"></div>
+          <div class="meta-row">
+            <span class="meta-badge">👤 <span id="uploader"></span></span>
+            <span class="meta-badge">⏱ <span id="duration"></span></span>
+            <span class="meta-badge">👁 <span id="viewCount"></span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">选择清晰度</div>
+      <div class="formats-grid" id="formatsGrid"></div>
+
+      <button class="btn-download" id="downloadBtn" onclick="startDownload()" disabled>
+        ⬇ 开始下载
+      </button>
+    </div>
+
+    <!-- 进度 -->
+    <div id="progress-section">
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span class="progress-status" id="progressStatus">正在下载...</span>
+          <span class="progress-pct" id="progressPct">0%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+        <div class="progress-info">
+          <span id="speedInfo">--</span>
+          <span id="etaInfo">预计剩余 --</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 完成 -->
+    <div id="done-section">
+      <div class="done-box">
+        <div class="done-icon">🎉</div>
+        <div class="done-title">下载完成！</div>
+        <div class="done-sub" id="doneFilename">文件已保存到服务器下载目录</div>
+        <a class="btn-save" id="saveBtn" href="#" target="_blank">💾 保存到本地</a>
+        <button class="btn-reset" onclick="resetAll()">继续下载</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cookie 上传弹窗 -->
+  <div class="modal-overlay" id="cookieModal">
+    <div class="modal">
+      <h2>🔑 上传 Cookies</h2>
+      <p class="sub">年龄限制视频需要携带 Cookies 才能下载。<br>请按以下步骤导出浏览器 Cookies：</p>
+      <div class="steps-box">
+        <div class="step-line">
+          <div class="step-num">1</div>
+          <div class="step-txt">Chrome 安装扩展：<strong>「Get cookies.txt LOCALLY」</strong><br><span style="font-size:0.78rem;color:rgba(255,255,255,0.4);">Chrome 应用商店搜索安装</span></div>
+        </div>
+        <div class="step-line">
+          <div class="step-num">2</div>
+          <div class="step-txt">打开 <strong>YouTube 任意页面</strong>（需已登录账号），点击扩展图标 → 点击 <strong>「Export」</strong></div>
+        </div>
+        <div class="step-line">
+          <div class="step-num">3</div>
+          <div class="step-txt">下载得到 <strong>cookies.txt</strong>，拖拽或点击下方区域上传</div>
+        </div>
+      </div>
+
+      <div class="upload-area" id="uploadArea" onclick="document.getElementById('cookieFileInput').click()">
+        <div class="upload-icon">📂</div>
+        <div class="upload-txt">点击选择 <strong>cookies.txt</strong> 文件，或拖拽到这里</div>
+      </div>
+      <input type="file" id="cookieFileInput" class="hidden-input" accept=".txt" onchange="handleCookieUpload(event)" />
+
+      <div class="upload-status" id="uploadStatus"></div>
+
+      <div class="modal-actions">
+        <button class="btn-modal-cancel" onclick="closeCookieModal()">取消</button>
+        <button class="btn-modal-ok" id="cookieUploadBtn" onclick="doUploadCookie()" disabled>上传</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="cookieFileInputReal" style="display:none" accept=".txt" />
+
+  <!-- 使用说明 -->
+  <div class="how-card">
+    <div class="how-title">📖 使用说明</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-text">复制 YouTube 视频链接</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-text">粘贴并点击「解析视频」</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-text">选清晰度 → 下载 → 保存到本地</div></div>
+    </div>
+  </div>
+
+  <footer>仅供学习研究使用，请遵守 YouTube 服务条款及版权法规</footer>
+
+<script>
+  const API = '';  // 同源，不用写完整地址
+  let currentUrl = '';
+  let selectedFormatId = '';
+  let currentTitle = '';
+  let pollTimer = null;
+  let cookieFile = null;  // 待上传的 File 对象
+
+  // ── 初始化：检查 cookies 状态 ──
+  async function checkCookieStatus() {
+    try {
+      const r = await fetch('/api/cookies-status');
+      const j = await r.json();
+      const bar = document.getElementById('cookieBar');
+      const msg = document.getElementById('cookieMsg');
+      const btn = document.getElementById('cookieBtn');
+      if (j.exists) {
+        bar.className = 'cookie-bar ready';
+        msg.textContent = '✓ Cookies 已就绪 — 可以下载年龄限制视频';
+        btn.textContent = '重新上传';
+        btn.className = 'btn-cookie ready';
+      } else {
+        bar.className = 'cookie-bar missing';
+        msg.textContent = '未检测到 Cookies — 年龄限制视频需要上传 Cookies';
+        btn.textContent = '上传 Cookies';
+        btn.className = 'btn-cookie';
+      }
+    } catch(e) {}
+  }
+  checkCookieStatus();
+
+  // ── Cookie 弹窗 ──
+  function openCookieModal() {
+    document.getElementById('cookieModal').classList.add('show');
+    document.getElementById('uploadStatus').textContent = '';
+    document.getElementById('uploadStatus').className = 'upload-status';
+    document.getElementById('cookieUploadBtn').disabled = true;
+    cookieFile = null;
+  }
+  function closeCookieModal() {
+    document.getElementById('cookieModal').classList.remove('show');
+  }
+
+  // 拖拽支持
+  const uploadArea = document.getElementById('uploadArea');
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) handleCookieFile(file);
+  });
+
+  function handleCookieUpload(e) {
+    const file = e.target.files[0];
+    if (file) handleCookieFile(file);
+  }
+
+  function handleCookieFile(file) {
+    if (!file.name.endsWith('.txt')) {
+      document.getElementById('uploadStatus').textContent = '⚠️ 请选择 .txt 格式文件';
+      document.getElementById('uploadStatus').className = 'upload-status err';
+      return;
+    }
+    cookieFile = file;
+    document.getElementById('uploadArea').querySelector('.upload-txt').innerHTML =
+      `已选择：<strong>${file.name}</strong> (${Math.round(file.size/1024)} KB)`;
+    document.getElementById('cookieUploadBtn').disabled = false;
+    document.getElementById('uploadStatus').textContent = '';
+  }
+
+  async function doUploadCookie() {
+    if (!cookieFile) return;
+    const btn = document.getElementById('cookieUploadBtn');
+    btn.disabled = true;
+    btn.textContent = '上传中...';
+
+    const fd = new FormData();
+    fd.append('file', cookieFile);
+
+    try {
+      const r = await fetch('/api/upload-cookies', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j.success) {
+        document.getElementById('uploadStatus').textContent = '✅ ' + j.message;
+        document.getElementById('uploadStatus').className = 'upload-status ok';
+        setTimeout(() => { closeCookieModal(); checkCookieStatus(); }, 1500);
+      } else {
+        document.getElementById('uploadStatus').textContent = '❌ ' + j.error;
+        document.getElementById('uploadStatus').className = 'upload-status err';
+        btn.disabled = false;
+        btn.textContent = '上传';
+      }
+    } catch(e) {
+      document.getElementById('uploadStatus').textContent = '❌ 上传失败：' + e.message;
+      document.getElementById('uploadStatus').className = 'upload-status err';
+      btn.disabled = false;
+      btn.textContent = '上传';
+    }
+  }
+
+  // ── 工具函数 ──
+  function fmtDuration(sec) {
+    if (!sec) return '--';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+  function fmtNum(n) {
+    if (!n) return '--';
+    if (n >= 1e8) return (n/1e8).toFixed(1) + '亿';
+    if (n >= 1e4) return (n/1e4).toFixed(1) + '万';
+    return n.toString();
+  }
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = '⚠️ ' + msg;
+    box.style.display = 'block';
+  }
+  function hideError() { document.getElementById('errorBox').style.display = 'none'; }
+
+  // ── 解析视频 ──
+  async function fetchInfo() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) { showError('请先输入视频链接'); return; }
+    hideError();
+    currentUrl = url;
+
+    const btn = document.getElementById('fetchBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle;"></span>解析中...';
+
+    document.getElementById('info-section').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('done-section').style.display = 'none';
+
+    try {
+      const resp = await fetch('/api/info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json.success) {
+        showError(json.error || '解析失败');
+        return;
+      }
+      renderInfo(json.data);
+    } catch(e) {
+      showError('无法连接到服务器，请确认后端已启动');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '解析视频';
+    }
+  }
+
+  function renderInfo(data) {
+    document.getElementById('thumbImg').src = data.thumbnail || '';
+    document.getElementById('videoTitle').textContent = data.title || '未知标题';
+    document.getElementById('uploader').textContent = data.uploader || '未知';
+    document.getElementById('duration').textContent = fmtDuration(data.duration);
+    document.getElementById('viewCount').textContent = fmtNum(data.view_count) + ' 次观看';
+    currentTitle = data.title || 'video';
+
+    const grid = document.getElementById('formatsGrid');
+    grid.innerHTML = '';
+    selectedFormatId = '';
+
+    if (!data.formats || data.formats.length === 0) {
+      grid.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:0.85rem;">未找到可用格式，将自动选择最佳画质</div>';
+      selectedFormatId = 'bestvideo+bestaudio';
+    } else {
+      data.formats.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'format-card' + (i === 0 ? ' selected' : '');
+        if (i === 0) selectedFormatId = f.format_id;
+        const badge = f.height >= 2160 ? '<span class="fmt-badge">4K</span>' :
+                      f.height >= 1080 ? '<span class="fmt-badge">HD</span>' : '';
+        div.innerHTML = `
+          <div class="fmt-label">${f.label}${badge}</div>
+          <div class="fmt-sub">${f.ext.toUpperCase()} · ${f.fps || 30}fps${f.size_mb ? ' · ~' + f.size_mb + 'MB' : ''}</div>
+        `;
+        div.onclick = () => {
+          document.querySelectorAll('.format-card').forEach(c => c.classList.remove('selected'));
+          div.classList.add('selected');
+          selectedFormatId = f.format_id;
+          document.getElementById('downloadBtn').disabled = false;
+        };
+        grid.appendChild(div);
+      });
+    }
+
+    document.getElementById('downloadBtn').disabled = false;
+    document.getElementById('info-section').style.display = 'block';
+  }
+
+  // ── 下载 ──
+  async function startDownload() {
+    if (!currentUrl) return;
+    document.getElementById('downloadBtn').disabled = true;
+    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('done-section').style.display = 'none';
+    setProgress(0, '准备下载...', '', '');
+
+    try {
+      const resp = await fetch('/api/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: currentUrl, format_id: selectedFormatId, title: currentTitle })
+      });
+      const json = await resp.json();
+      if (!resp.ok || !json.task_id) {
+        showError(json.error || '下载失败');
+        document.getElementById('progress-section').style.display = 'none';
+        document.getElementById('downloadBtn').disabled = false;
+        return;
+      }
+      pollProgress(json.task_id);
+    } catch(e) {
+      showError('下载请求失败：' + e.message);
+      document.getElementById('progress-section').style.display = 'none';
+      document.getElementById('downloadBtn').disabled = false;
+    }
+  }
+
+  function pollProgress(taskId) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try {
+        const resp = await fetch('/api/progress/' + taskId);
+        const task = await resp.json();
+        if (task.status === 'downloading') {
+          setProgress(task.progress, '正在下载...', task.speed, task.eta);
+        } else if (task.status === 'done') {
+          clearInterval(pollTimer);
+          setProgress(100, '下载完成 ✓', '', '');
+          showDone(taskId, task.filename);
+        } else if (task.status === 'error') {
+          clearInterval(pollTimer);
+          showError('下载出错：' + (task.error || '未知错误'));
+          document.getElementById('progress-section').style.display = 'none';
+          document.getElementById('downloadBtn').disabled = false;
+        }
+      } catch(e) {}
+    }, 800);
+  }
+
+  function setProgress(pct, status, speed, eta) {
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressStatus').textContent = status;
+    document.getElementById('speedInfo').textContent = speed || '--';
+    document.getElementById('etaInfo').textContent = eta ? '预计剩余 ' + eta : '';
+  }
+
+  function showDone(taskId, filename) {
+    document.getElementById('done-section').style.display = 'block';
+    document.getElementById('doneFilename').textContent = filename || '视频已下载完成';
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.href = '/api/download-file/' + taskId;
+    saveBtn.download = filename || 'video.mp4';
+  }
+
+  function resetAll() {
+    document.getElementById('urlInput').value = '';
+    document.getElementById('info-section').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('done-section').style.display = 'none';
+    hideError();
+    currentUrl = '';
+    selectedFormatId = '';
+    currentTitle = '';
+    if (pollTimer) clearInterval(pollTimer);
+  }
+
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') fetchInfo();
+  });
+  document.getElementById('urlInput').addEventListener('paste', () => {
+    setTimeout(() => {
+      const v = document.getElementById('urlInput').value;
+      if (v.includes('youtube.com') || v.includes('youtu.be')) fetchInfo();
+    }, 100);
+  });
+
+  // 点击弹窗背景关闭
+  document.getElementById('cookieModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('cookieModal')) closeCookieModal();
+  });
+</script>
+
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</body>
+</html>
