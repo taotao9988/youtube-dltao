@@ -17,20 +17,6 @@ import yt_dlp
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
-# 自动检测 ffmpeg（优先用 imageio-ffmpeg 自带的，无需系统安装）
-import shutil
-_ffmpeg_exe = shutil.which('ffmpeg')
-if not _ffmpeg_exe:
-    try:
-        import imageio_ffmpeg
-        _ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-        print('[ffmpeg] 使用 imageio-ffmpeg: ' + str(_ffmpeg_exe), flush=True)
-    except Exception as e:
-        print('[ffmpeg] 警告: 未找到 ffmpeg - ' + str(e), flush=True)
-        _ffmpeg_exe = None
-else:
-    print('[ffmpeg] 系统 ffmpeg: ' + str(_ffmpeg_exe), flush=True)
-
 # 强制刷新输出（Windows 上 print 可能会被缓冲）
 import sys
 if hasattr(sys.stdout, 'reconfigure'):
@@ -38,13 +24,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(line_buffering=True)
 
-# 兼容本地 Windows 和云端 Linux
-import tempfile
-if os.environ.get('RENDER'):
-    # Render 云端：用 /tmp 目录（ephemeral，但下载完成后立即发送给用户）
-    DOWNLOAD_DIR = Path('/tmp/ytdl_downloads')
-else:
-    DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
+DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 # cookies 源文件路径
@@ -123,15 +103,6 @@ def get_ydl_opts():
         print('[cookies] loaded: ' + cookies_path, flush=True)
     else:
         print('[cookies] 未找到 cookies.txt', flush=True)
-
-    # ffmpeg 路径（用于合并视频+音频）
-    global _ffmpeg_exe
-    if _ffmpeg_exe and os.path.exists(_ffmpeg_exe):
-        opts['ffmpeg_location'] = _ffmpeg_exe
-        print('[ffmpeg] yt-dlp 将使用: ' + _ffmpeg_exe, flush=True)
-    else:
-        # 没有 ffmpeg，禁止合并格式
-        opts['prefer_ffmpeg'] = False
 
     return opts
 
@@ -224,22 +195,20 @@ def get_video_info(url):
 
 
 def pick_format(format_id):
-    """根据前端传来的 format_id 生成 yt-dlp format 字符串
-    不合并格式，避免需要 ffmpeg"""
+    """根据前端传来的 format_id 生成 yt-dlp format 字符串"""
     try:
         if format_id == 'bestvideo+bestaudio/best':
-            # 不合并，直接下载最佳单一格式
-            return 'best[ext=mp4]/best'
+            return 'bestvideo+bestaudio/best'
         if isinstance(format_id, str) and format_id.isdigit():
-            return 'best[height<=' + format_id + '][ext=mp4]/best[height<=' + format_id + ']/best'
+            return format_id + '+bestaudio/best[height<=' + format_id + ']/best'
         s = str(format_id).replace('p', '').replace('K', '')
         if '4' in str(format_id) and 'K' in str(format_id):
             height = 2160
         else:
             height = int(s)
-        return 'best[height<=' + str(height) + '][ext=mp4]/best[height<=' + str(height) + ']/best'
+        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/bestvideo+bestaudio/best'
     except (ValueError, TypeError):
-        return 'best[ext=mp4]/best'
+        return 'bestvideo+bestaudio/best'
 
 
 def download_task(task_id, url, format_id, title):
@@ -307,7 +276,7 @@ def download_task(task_id, url, format_id, title):
 tasks = {}
 
 
-# ── 路由 ─────────────────────────────────────────────
+# ── 路由 ─────────────────────────────────────
 
 @app.route('/')
 def index():
