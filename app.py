@@ -17,6 +17,21 @@ import yt_dlp
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
+# 自动检测 ffmpeg（优先用项目目录下的 ffmpeg\bin\ffmpeg.exe）
+import shutil, os
+_ffmpeg_exe = None
+_PROJECT_FFMPEG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ffmpeg', 'bin', 'ffmpeg.exe')
+if os.path.exists(_PROJECT_FFMPEG):
+    _ffmpeg_exe = _PROJECT_FFMPEG
+    print('[ffmpeg] 使用项目目录下 ffmpeg: ' + _ffmpeg_exe, flush=True)
+else:
+    _sys_ffmpeg = shutil.which('ffmpeg')
+    if _sys_ffmpeg:
+        _ffmpeg_exe = _sys_ffmpeg
+        print('[ffmpeg] 使用系统 PATH ffmpeg: ' + _ffmpeg_exe, flush=True)
+    else:
+        print('[ffmpeg] 未找到 ffmpeg，高清下载需要安装', flush=True)
+
 # 强制刷新输出（Windows 上 print 可能会被缓冲）
 import sys
 if hasattr(sys.stdout, 'reconfigure'):
@@ -118,13 +133,12 @@ def get_video_info(url):
     print('[get_video_info] 共 ' + str(len(all_formats)) + ' 个原始格式', flush=True)
 
     # 按 (height, fps, filesize) 选每个高度下的最佳格式
-    # 只保留有音频的合并格式（acodec != none），确保下载有声音
+    # 允许纯视频流（有其他音频流可合并）
     best = {}
     for f in all_formats:
         height = f.get('height') or 0
         vcodec = f.get('vcodec', 'none')
-        acodec = f.get('acodec', 'none')
-        if vcodec == 'none' or acodec == 'none' or height <= 0:
+        if vcodec == 'none' or height <= 0:
             continue
         fid = f.get('format_id')
         if not fid:
@@ -197,20 +211,20 @@ def get_video_info(url):
 
 
 def pick_format(format_id):
-    """根据前端传来的 format_id 生成 yt-dlp format 字符串（不合并，无需 ffmpeg）"""
+    """根据前端传来的 format_id 生成 yt-dlp format 字符串（支持合并，需要 ffmpeg）"""
     try:
         if format_id == 'bestvideo+bestaudio/best':
-            return 'best[acodec!=none][ext=mp4]/best[acodec!=none]/best'
+            return 'bestvideo+bestaudio/best'
         if isinstance(format_id, str) and format_id.isdigit():
-            return 'best[height<=' + format_id + '][acodec!=none][ext=mp4]/best[height<=' + format_id + '][acodec!=none]/best'
+            return format_id + '+bestaudio/best'
         s = str(format_id).replace('p', '').replace('K', '')
         if '4' in str(format_id) and 'K' in str(format_id):
             height = 2160
         else:
             height = int(s)
-        return 'best[height<=' + str(height) + '][acodec!=none][ext=mp4]/best[height<=' + str(height) + '][acodec!=none]/best'
+        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/bestvideo+bestaudio/best'
     except (ValueError, TypeError):
-        return 'best[acodec!=none][ext=mp4]/best[acodec!=none]/best'
+        return 'bestvideo+bestaudio/best'
 
 
 def download_task(task_id, url, format_id, title):
@@ -243,6 +257,7 @@ def download_task(task_id, url, format_id, title):
         'format': fmt,
         'outtmpl': output_path + '.%(ext)s',
         'progress_hooks': [progress_hook],
+        'merge_output_format': 'mp4',
     })
 
     try:
