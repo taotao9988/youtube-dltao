@@ -130,12 +130,15 @@ def get_video_info(url):
         vcodec = f.get('vcodec', 'none')
         if vcodec == 'none' or height <= 0:
             continue
-        fid = f['format_id']
+        fid = f.get('format_id')
+        if not fid:
+            continue
         filesize = (f.get('filesize') or f.get('filesize_approx') or 0)
         fps = f.get('fps') or 30
         score = (fps, filesize)
         key = int(height)
-        if key not in best or score > best[key]['score']:
+        existing = best.get(key)
+        if not existing or score > existing['score']:
             best[key] = {
                 'format_id': fid,
                 'height': key,
