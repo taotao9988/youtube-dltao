@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: youtube-dl
+    name: youtube-dltao
     env: python
     buildCommand: "./build.sh"
-    startCommand: "python app.py"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
