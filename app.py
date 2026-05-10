@@ -228,8 +228,15 @@ def pick_format(format_id):
         if format_id == 'bestvideo+bestaudio/best':
             return 'bestvideo+bestaudio/best'
         if isinstance(format_id, str) and format_id.isdigit():
+            # 纯数字 format_id（如 '137'），直接用作 yt-dlp format 选择器
             return format_id + '+bestaudio/best'
-        height = int(str(format_id).replace('p', '').replace('K', '').replace('4', ''))
+        # 处理 '1080p'、'720p' 等格式
+        s = str(format_id).replace('p', '').replace('K', '')
+        # 处理 '4K' → 2160
+        if '4' in str(format_id) and 'K' in str(format_id):
+            height = 2160
+        else:
+            height = int(s)
         # 用 /best 兜底，格式不存在时自动降级
         return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/bestvideo+bestaudio/best'
     except (ValueError, TypeError):
