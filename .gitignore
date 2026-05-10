@@ -23,7 +23,6 @@ binaries/
 # Project specific
 downloads/
 *.log
-*.txt
 cookies.txt
 
 # Workbuddy
