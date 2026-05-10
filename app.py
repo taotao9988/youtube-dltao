@@ -17,6 +17,20 @@ import yt_dlp
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
+# 自动检测 ffmpeg（优先用 imageio-ffmpeg 自带的，无需系统安装）
+import shutil
+_ffmpeg_exe = shutil.which('ffmpeg')
+if not _ffmpeg_exe:
+    try:
+        import imageio_ffmpeg
+        _ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        print('[ffmpeg] 使用 imageio-ffmpeg: ' + str(_ffmpeg_exe), flush=True)
+    except Exception as e:
+        print('[ffmpeg] 警告: 未找到 ffmpeg - ' + str(e), flush=True)
+        _ffmpeg_exe = None
+else:
+    print('[ffmpeg] 系统 ffmpeg: ' + str(_ffmpeg_exe), flush=True)
+
 # 强制刷新输出（Windows 上 print 可能会被缓冲）
 import sys
 if hasattr(sys.stdout, 'reconfigure'):
@@ -109,6 +123,12 @@ def get_ydl_opts():
         print('[cookies] loaded: ' + cookies_path, flush=True)
     else:
         print('[cookies] 未找到 cookies.txt', flush=True)
+
+    # ffmpeg 路径（用于合并视频+音频）
+    global _ffmpeg_exe
+    if _ffmpeg_exe and os.path.exists(_ffmpeg_exe):
+        opts['ffmpeg_location'] = _ffmpeg_exe
+        print('[ffmpeg] yt-dlp 将使用: ' + _ffmpeg_exe, flush=True)
 
     return opts
 
