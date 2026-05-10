@@ -118,11 +118,13 @@ def get_video_info(url):
     print('[get_video_info] 共 ' + str(len(all_formats)) + ' 个原始格式', flush=True)
 
     # 按 (height, fps, filesize) 选每个高度下的最佳格式
+    # 只保留有音频的合并格式（acodec != none），确保下载有声音
     best = {}
     for f in all_formats:
         height = f.get('height') or 0
         vcodec = f.get('vcodec', 'none')
-        if vcodec == 'none' or height <= 0:
+        acodec = f.get('acodec', 'none')
+        if vcodec == 'none' or acodec == 'none' or height <= 0:
             continue
         fid = f.get('format_id')
         if not fid:
@@ -198,17 +200,17 @@ def pick_format(format_id):
     """根据前端传来的 format_id 生成 yt-dlp format 字符串（不合并，无需 ffmpeg）"""
     try:
         if format_id == 'bestvideo+bestaudio/best':
-            return 'best[ext=mp4]/best'
+            return 'best[acodec!=none][ext=mp4]/best[acodec!=none]/best'
         if isinstance(format_id, str) and format_id.isdigit():
-            return 'best[height<=' + format_id + '][ext=mp4]/best[height<=' + format_id + ']/best'
+            return 'best[height<=' + format_id + '][acodec!=none][ext=mp4]/best[height<=' + format_id + '][acodec!=none]/best'
         s = str(format_id).replace('p', '').replace('K', '')
         if '4' in str(format_id) and 'K' in str(format_id):
             height = 2160
         else:
             height = int(s)
-        return 'best[height<=' + str(height) + '][ext=mp4]/best[height<=' + str(height) + ']/best'
+        return 'best[height<=' + str(height) + '][acodec!=none][ext=mp4]/best[height<=' + str(height) + '][acodec!=none]/best'
     except (ValueError, TypeError):
-        return 'best[ext=mp4]/best'
+        return 'best[acodec!=none][ext=mp4]/best[acodec!=none]/best'
 
 
 def download_task(task_id, url, format_id, title):
