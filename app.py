@@ -83,7 +83,6 @@ def get_ydl_opts():
         'age_limit': 21,
         'geo_bypass': True,
         'socket_timeout': 60,
-        'remote_components': ['ejs:github'],
     }
 
     # deno（用于绕过 bot 检测）
