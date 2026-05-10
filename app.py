@@ -24,7 +24,13 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(line_buffering=True)
 
-DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
+# 兼容本地 Windows 和云端 Linux
+import tempfile
+if os.environ.get('RENDER'):
+    # Render 云端：用 /tmp 目录（ephemeral，但下载完成后立即发送给用户）
+    DOWNLOAD_DIR = Path('/tmp/ytdl_downloads')
+else:
+    DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
 DOWNLOAD_DIR.mkdir(exist_ok=True)
 
 # cookies 源文件路径
