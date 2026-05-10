@@ -418,4 +418,4 @@ if __name__ == '__main__':
     print('  cookies.txt:', _COOKIES_SRC.exists(), flush=True)
     print('  RENDER env:', os.environ.get('RENDER', 'not set'), flush=True)
     print('=' * 50, flush=True)
-    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)

@@ -613,6 +613,7 @@
       }
       renderInfo(json.data);
     } catch(e) {
+      console.error('fetchInfo error:', e);
       showError('无法连接到服务器，请确认后端已启动');
     } finally {
       btn.disabled = false;
