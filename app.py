@@ -129,6 +129,9 @@ def get_ydl_opts():
     if _ffmpeg_exe and os.path.exists(_ffmpeg_exe):
         opts['ffmpeg_location'] = _ffmpeg_exe
         print('[ffmpeg] yt-dlp 将使用: ' + _ffmpeg_exe, flush=True)
+    else:
+        # 没有 ffmpeg，禁止合并格式
+        opts['prefer_ffmpeg'] = False
 
     return opts
 
@@ -221,16 +224,22 @@ def get_video_info(url):
 
 
 def pick_format(format_id):
-    """根据前端传来的 format_id 生成 yt-dlp format 字符串"""
+    """根据前端传来的 format_id 生成 yt-dlp format 字符串
+    不合并格式，避免需要 ffmpeg"""
     try:
         if format_id == 'bestvideo+bestaudio/best':
-            return 'bestvideo+bestaudio/best'
+            # 不合并，直接下载最佳单一格式
+            return 'best[ext=mp4]/best'
         if isinstance(format_id, str) and format_id.isdigit():
-            return format_id + '+bestaudio/best[height<=' + format_id + ']/best'
-        height = int(str(format_id).replace('p', ''))
-        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/best'
+            return 'best[height<=' + format_id + '][ext=mp4]/best[height<=' + format_id + ']/best'
+        s = str(format_id).replace('p', '').replace('K', '')
+        if '4' in str(format_id) and 'K' in str(format_id):
+            height = 2160
+        else:
+            height = int(s)
+        return 'best[height<=' + str(height) + '][ext=mp4]/best[height<=' + str(height) + ']/best'
     except (ValueError, TypeError):
-        return 'bestvideo+bestaudio/best'
+        return 'best[ext=mp4]/best'
 
 
 def download_task(task_id, url, format_id, title):
