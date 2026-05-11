@@ -1,242 +1,242 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-YouTube 视频下载工具 - Flask 后端
-支持年龄限制视频（通过上传 cookies.txt）
+YouTube Video Downloader - Flask Backend
 """
 
 import os
-import json
+import sys
+import io
+import time
+import shutil
 import threading
-import uuid
+import tempfile
+import platform
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask import Flask, request, jsonify, send_file, Response
 from flask_cors import CORS
+
+# ── yt-dlp ──
 import yt_dlp
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
-# 自动检测 ffmpeg（优先用项目目录下的 ffmpeg\bin\ffmpeg.exe）
-import shutil, os
-_ffmpeg_exe = None
-_PROJECT_FFMPEG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ffmpeg', 'bin', 'ffmpeg.exe')
-if os.path.exists(_PROJECT_FFMPEG):
-    _ffmpeg_exe = _PROJECT_FFMPEG
-    print('[ffmpeg] 使用项目目录下 ffmpeg: ' + _ffmpeg_exe, flush=True)
-else:
-    _sys_ffmpeg = shutil.which('ffmpeg')
-    if _sys_ffmpeg:
-        _ffmpeg_exe = _sys_ffmpeg
-        print('[ffmpeg] 使用系统 PATH ffmpeg: ' + _ffmpeg_exe, flush=True)
-    else:
-        print('[ffmpeg] 未找到 ffmpeg，高清下载需要安装', flush=True)
+# ── 全局配置 ──
+PORT = int(os.environ.get('PORT', 5050))
+BASE_DIR = Path(__file__).parent
+DOWNLOAD_DIR = BASE_DIR / 'downloads'
+TEMP_DIR = BASE_DIR / 'temp'
+FFMPEG_PATH = BASE_DIR / 'ffmpeg' / 'bin' / 'ffmpeg.exe'
 
-# 强制刷新输出（Windows 上 print 可能会被缓冲）
-import sys
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(line_buffering=True)
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(line_buffering=True)
-
-DOWNLOAD_DIR = Path(__file__).parent / 'downloads'
+# ── 初始化目录 ──
 DOWNLOAD_DIR.mkdir(exist_ok=True)
+TEMP_DIR.mkdir(exist_ok=True)
 
-# cookies 源文件路径
-_COOKIES_SRC = Path(__file__).parent / 'cookies.txt'
+# ── 多组 User-Agent（轮换使用，提高成功率） ──
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+]
 
+# ── 任务存储 ──
+tasks = {}
 
-def _get_working_cookies_path():
-    """
-    返回 yt-dlp 可读取的 cookies 文件路径。
-    尝试复制到 TEMP 目录（无空格路径），失败则用原路径。
-    """
-    if not _COOKIES_SRC.exists():
-        return None
+# ── 获取随机 User-Agent ──
+def get_random_ua():
+    import random
+    return random.choice(USER_AGENTS)
 
-    import shutil
-    import tempfile
-    tmp_cookies = Path(tempfile.gettempdir()) / 'yt_dlp_cookies.txt'
-    try:
-        shutil.copy(str(_COOKIES_SRC), str(tmp_cookies))
-        with open(tmp_cookies, 'r', encoding='utf-8', errors='ignore') as f:
-            if f.readline().startswith('# '):
-                print('[cookies] 使用临时副本: ' + str(tmp_cookies), flush=True)
-                return str(tmp_cookies)
-    except Exception as e:
-        print('[cookies] 复制到临时目录失败: ' + str(e), flush=True)
-
-    print('[cookies] 使用原路径: ' + str(_COOKIES_SRC), flush=True)
-    return str(_COOKIES_SRC)
-
-
-def _find_deno():
-    """查找 deno 可执行文件，返回路径或 None"""
-    import shutil
-    deno = shutil.which('deno')
-    if deno:
-        return deno
-    for p in ['C:\\deno\\deno.exe', 'C:\\Tools\\deno\\deno.exe']:
-        if os.path.exists(p):
-            return p
+# ── 检查 ffmpeg ──
+def check_ffmpeg():
+    ffmpeg_locations = [
+        FFMPEG_PATH,
+        Path('ffmpeg/bin/ffmpeg.exe'),
+        Path(__file__).parent / 'ffmpeg' / 'bin' / 'ffmpeg.exe',
+        shutil.which('ffmpeg') or shutil.which('ffmpeg.exe'),
+    ]
+    for loc in ffmpeg_locations:
+        if loc and (isinstance(loc, Path) and loc.exists() or isinstance(loc, str) and Path(loc).exists()):
+            print(f'  ✓ ffmpeg found: {loc}')
+            return str(loc)
+        elif loc:
+            print(f'  ✗ not found: {loc}')
+    print('  ! ffmpeg not found — HD merge disabled')
     return None
 
-
+# ── 获取 yt-dlp 选项（增强版浏览器模拟） ──
 def get_ydl_opts():
-    """返回通用 yt-dlp 选项"""
     opts = {
         'quiet': False,
         'no_warnings': False,
         'no_check_certificates': True,
-        'age_limit': 21,
+        'age_limit': 25,  # 提高年龄限制
         'geo_bypass': True,
+        'geo_bypass_countries': ['US', 'JP', 'KR', 'CN'],
         'socket_timeout': 60,
+        # ── 增强浏览器模拟 ──
+        'http_headers': {
+            'User-Agent': get_random_ua(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7,ja;q=0.6',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Cache-Control': 'max-age=0',
+        },
+        # ── 多播放器客户端策略 ──
         'extractor_args': {
             'youtube': {
-                'player_client': ['web', 'web_embedded', 'ios', 'android'],
+                'player_client': [
+                    'web',              # Web 端
+                    'web_embedded',     # Web 嵌入式
+                    'ios',              # iOS 客户端
+                    'android',          # Android 客户端
+                ],
+                'player_skip': ['configs', 'webpage'],
             }
         },
-        'format_sort': ['quality', 'res', 'fps', 'hdr:12', 'vcodec:avc'],
+        'format_sort': [
+            'quality', 'res', 'fps', 
+            'hdr:12', 'vcodec:avc', 'acodec:mp4a'
+        ],
+        'ignoreerrors': False,
     }
 
-    # deno（用于绕过 bot 检测）
-    deno_path = _find_deno()
-    if deno_path:
-        os.environ['YTDLP_JS_RUNTIME'] = deno_path
-        deno_dir = os.path.dirname(deno_path)
-        env_path = os.environ.get('PATH', '')
-        if deno_dir not in env_path:
-            os.environ['PATH'] = deno_dir + os.pathsep + env_path
-        print('[deno] found: ' + deno_path, flush=True)
-    else:
-        print('[deno] NOT found - bot check may fail', flush=True)
+    # 检查 cookies.txt
+    cookies_path = BASE_DIR / 'cookies.txt'
+    temp_cookies = None
+    
+    if cookies_path.exists():
+        # 复制到无空格路径
+        temp_cookies = TEMP_DIR / 'cookies.txt'
+        try:
+            shutil.copy2(cookies_path, temp_cookies)
+            opts['cookiefile'] = str(temp_cookies)
+            print(f'  ✓ cookies loaded')
+        except Exception as e:
+            print(f'  ! cookies copy failed: {e}')
 
-    # cookies
-    cookies_path = _get_working_cookies_path()
-    if cookies_path and os.path.exists(cookies_path):
-        opts['cookiefile'] = cookies_path
-        print('[cookies] loaded: ' + cookies_path, flush=True)
-    else:
-        print('[cookies] 未找到 cookies.txt', flush=True)
+    # ffmpeg
+    ffmpeg = check_ffmpeg()
+    if ffmpeg:
+        opts['ffmpeg_location'] = ffmpeg
+
+    # deno（可选）
+    deno_path = BASE_DIR / 'deno' / 'deno.exe'
+    if deno_path.exists():
+        opts['extractor_retries'] = 3
+        opts['skip_download'] = False
 
     return opts
 
 
 def get_video_info(url):
-    """获取视频信息（不下载），返回所有可用清晰度选项"""
+    """获取视频信息"""
     opts = get_ydl_opts()
     opts['extract_flat'] = False
+    opts['skip_download'] = True
+
+    all_formats = []
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
+        if not info:
+            return None
+        
+        all_formats = info.get('formats', [])
 
-    all_formats = info.get('formats', [])
-    print('[get_video_info] 共 ' + str(len(all_formats)) + ' 个原始格式', flush=True)
-
-    # 按 (height, fps, filesize) 选每个高度下的最佳格式
-    # 允许纯视频流（有其他音频流可合并）
+    # 整理格式（每个分辨率只保留最好的）
     best = {}
+    seen_heights = set()
+    
     for f in all_formats:
         height = f.get('height') or 0
         vcodec = f.get('vcodec', 'none')
+        acodec = f.get('acodec', 'none')
+        
+        # 只保留视频（跳过纯音频）
         if vcodec == 'none' or height <= 0:
             continue
-        fid = f.get('format_id')
-        if not fid:
-            continue
-        filesize = (f.get('filesize') or f.get('filesize_approx') or 0)
-        fps = f.get('fps') or 30
-        score = (fps, filesize)
-        key = int(height)
-        existing = best.get(key)
-        if not existing or score > existing['score']:
+            
+        # 按 fps 和 filesize 评分
+        fps = f.get('fps', 30) or 30
+        size = f.get('filesize') or f.get('filesize_approx') or 0
+        score = fps * 1000 + (size // (1024 * 1024))
+        
+        key = (height, f.get('ext'))
+        if key not in best or score > best[key]['score']:
+            label = f'{height}p'
+            if fps >= 60:
+                label += f'{fps}'
             best[key] = {
-                'format_id': fid,
-                'height': key,
-                'ext': f.get('ext', ''),
+                'format_id': f['format_id'],
+                'height': height,
                 'fps': fps,
-                'filesize': filesize,
+                'label': label,
+                'ext': f.get('ext', 'mp4'),
+                'size_mb': round(size / (1024 * 1024), 1) if size else None,
                 'score': score,
             }
+        seen_heights.add(height)
 
-    print('[get_video_info] 去重后 ' + str(len(best)) + ' 个高度', flush=True)
+    formats = sorted(best.values(), key=lambda x: x['height'], reverse=True)
 
-    formats = []
-    for entry in best.values():
-        h = entry['height']
-        fs = entry['filesize']
-        size_mb = round(fs / 1024 / 1024, 1) if fs else 0
-        if h >= 2160:
-            label = '4K (2160p)'
-        elif h >= 1440:
-            label = '2K (1440p)'
-        elif h >= 1080:
-            label = '1080p 高清'
-        elif h >= 720:
-            label = '720p 高清'
-        elif h >= 480:
-            label = '480p 标清'
-        else:
-            label = str(h) + 'p'
-        formats.append({
-            'format_id': entry['format_id'],
-            'height': h,
-            'ext': entry['ext'],
-            'label': label,
-            'size_mb': size_mb,
-            'fps': entry['fps'],
-        })
-
-    formats.sort(key=lambda x: x['height'], reverse=True)
-
-    # 附加「最佳质量」选项
-    formats.append({
-        'format_id': 'bestvideo+bestaudio/best',
-        'height': 9999,
-        'ext': 'mp4',
-        'label': '最佳质量（自动）',
-        'size_mb': 0,
-        'fps': 60,
-    })
-
-    print('[get_video_info] 返回 ' + str(len(formats)) + ' 个选项', flush=True)
     return {
         'title': info.get('title', '未知标题'),
         'duration': info.get('duration', 0),
         'thumbnail': info.get('thumbnail', ''),
-        'uploader': info.get('uploader', '未知'),
+        'uploader': info.get('uploader', ''),
         'view_count': info.get('view_count', 0),
         'upload_date': info.get('upload_date', ''),
+        'description': (info.get('description') or '')[:200],
         'formats': formats,
+        'age_limit': info.get('age_limit', 0),
+        'is_live': info.get('is_live', False),
     }
 
 
 def pick_format(format_id):
-    """根据前端传来的 format_id 生成 yt-dlp format 字符串（支持合并，需要 ffmpeg）"""
-    try:
-        if format_id == 'bestvideo+bestaudio/best':
-            return 'bestvideo+bestaudio/best'
-        if isinstance(format_id, str) and format_id.isdigit():
-            return format_id + '+bestaudio/best'
-        s = str(format_id).replace('p', '').replace('K', '')
-        if '4' in str(format_id) and 'K' in str(format_id):
-            height = 2160
-        else:
-            height = int(s)
-        return 'bestvideo[height<=' + str(height) + ']+bestaudio/best[height<=' + str(height) + ']/bestvideo+bestaudio/best'
-    except (ValueError, TypeError):
+    """生成 yt-dlp format 字符串"""
+    if not format_id or format_id == 'bestvideo+bestaudio/best':
         return 'bestvideo+bestaudio/best'
+    
+    # 如果是 'best' 也直接返回
+    if format_id == 'best':
+        return 'best'
+    
+    # 如果是纯数字（format_id）
+    if isinstance(format_id, str) and format_id.isdigit():
+        return f'{format_id}+bestaudio/best'
+    
+    # 如果是带 p 的分辨率
+    if isinstance(format_id, str) and format_id.endswith('p'):
+        try:
+            height = int(format_id[:-1])
+            return f'bestvideo[height<={height}]+bestaudio/best'
+        except ValueError:
+            pass
+    
+    # 直接作为 format_id
+    return f'{format_id}+bestaudio/best'
 
 
-def download_task(task_id, url, format_id, title):
+def download_task(task_id, url, format_id, title=None):
     """后台下载任务"""
     tasks[task_id]['status'] = 'downloading'
     tasks[task_id]['progress'] = 0
+    tasks[task_id]['speed'] = ''
+    tasks[task_id]['eta'] = ''
 
-    safe_title = ''.join(c for c in title if c.isalnum() or c in ' -_()[]').strip()[:60]
-    if not safe_title:
-        safe_title = task_id
-
+    safe_title = ''.join(c for c in (title or 'video') if c.isalnum() or c in ' -_()[]').strip()[:60]
     output_path = str(DOWNLOAD_DIR / (safe_title + '_' + task_id))
+    final_file = None
 
     def progress_hook(d):
         if d['status'] == 'downloading':
@@ -252,7 +252,6 @@ def download_task(task_id, url, format_id, title):
 
     dl_opts = get_ydl_opts()
     fmt = pick_format(format_id)
-    print('[download] format=' + fmt, flush=True)
     dl_opts.update({
         'format': fmt,
         'outtmpl': output_path + '.%(ext)s',
@@ -263,141 +262,160 @@ def download_task(task_id, url, format_id, title):
     try:
         with yt_dlp.YoutubeDL(dl_opts) as ydl:
             ydl.download([url])
-            final_file = None
-            for f in DOWNLOAD_DIR.iterdir():
-                if f.stem.startswith(safe_title + '_' + task_id):
-                    final_file = f
-                    break
-            if not final_file:
-                for f in DOWNLOAD_DIR.iterdir():
-                    if task_id in f.name:
-                        final_file = f
-                        break
-            if final_file and final_file.exists():
-                tasks[task_id]['status'] = 'done'
-                tasks[task_id]['progress'] = 100
-                tasks[task_id]['file'] = str(final_file)
-                tasks[task_id]['filename'] = final_file.name
-                print('[下载完成] ' + final_file.name, flush=True)
-            else:
-                tasks[task_id]['status'] = 'error'
-                tasks[task_id]['error'] = '下载完成但未找到文件'
+
+        # 找下载好的文件
+        base = Path(output_path)
+        for ext in ['mp4', 'mkv', 'webm', 'avi', 'flv', 'mov']:
+            f = base.parent / (base.name + f'.{ext}')
+            if f.exists():
+                final_file = f
+                break
+
+        if final_file:
+            ext = final_file.suffix.lstrip('.')
+            filename = f'{safe_title}.{ext}'
+            tasks[task_id]['status'] = 'done'
+            tasks[task_id]['file'] = str(final_file)
+            tasks[task_id]['filename'] = filename
+        else:
+            raise FileNotFoundError('No output file found')
+
     except Exception as e:
-        err = str(e)
-        print('[下载失败] ' + err, flush=True)
         tasks[task_id]['status'] = 'error'
-        tasks[task_id]['error'] = err
+        tasks[task_id]['error'] = str(e)
+        print(f'[!] download error: {e}')
 
 
-tasks = {}
-
-
-# ── 路由 ─────────────────────────────────────
+# ═══════════════════════════════════════════
+# 路由
+# ═══════════════════════════════════════════
 
 @app.route('/')
 def index():
-    return send_from_directory('static', 'index.html')
+    return app.send_static_file('index.html')
 
 
 @app.route('/api/cookies-status')
-def api_cookies_status():
-    return jsonify({'exists': _COOKIES_SRC.exists(), 'path': str(_COOKIES_SRC)})
+def cookies_status():
+    """检查 cookies 状态"""
+    cookies_path = BASE_DIR / 'cookies.txt'
+    return jsonify({
+        'exists': cookies_path.exists(),
+        'message': 'Cookies file found' if cookies_path.exists() else 'No cookies.txt in project root'
+    })
 
 
 @app.route('/api/upload-cookies', methods=['POST'])
-def api_upload_cookies():
+def upload_cookies():
+    """上传 cookies.txt"""
     if 'file' not in request.files:
-        return jsonify({'error': '未收到文件'}), 400
-    file = request.files['file']
-    if not file.filename.endswith('.txt'):
-        return jsonify({'error': '请上传 .txt 格式文件'}), 400
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+
+    f = request.files['file']
+    if not f.filename.endswith('.txt'):
+        return jsonify({'success': False, 'error': 'Only .txt files allowed'}), 400
+
+    cookies_path = BASE_DIR / 'cookies.txt'
     try:
-        file.save(str(_COOKIES_SRC))
-        with open(_COOKIES_SRC, 'r', encoding='utf-8', errors='ignore') as f:
-            if not f.readline().startswith('# '):
-                return jsonify({'error': 'cookies.txt 格式不正确，请用浏览器扩展重新导出'}), 400
-        return jsonify({'success': True, 'message': 'cookies 已上传！'})
+        # 保存到项目根目录
+        f.save(str(cookies_path))
+        return jsonify({
+            'success': True,
+            'message': f'Cookies saved! ({os.path.getsize(cookies_path)} bytes)'
+        })
     except Exception as e:
-        return jsonify({'error': '保存失败：' + str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/info', methods=['POST'])
-def api_get_info():
-    data = request.get_json(force=True, silent=True) or {}
+def api_info():
+    """获取视频信息"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON body'}), 400
+    
     url = data.get('url', '').strip()
     if not url:
-        return jsonify({'error': '请输入视频链接'}), 400
-    if 'youtube.com' not in url and 'youtu.be' not in url:
-        return jsonify({'error': '请输入有效的 YouTube 链接'}), 400
+        return jsonify({'success': False, 'error': 'URL is required'}), 400
+
     try:
         info = get_video_info(url)
+        if not info:
+            return jsonify({'success': False, 'error': 'Failed to fetch video info'}), 500
         return jsonify({'success': True, 'data': info})
     except yt_dlp.utils.DownloadError as e:
-        err = str(e)
-        print('[DownloadError] ' + err, flush=True)
-        keywords = ['sign in', 'login', 'age', 'restricted', 'bot']
-        if any(k in err.lower() for k in keywords):
-            msg = 'YouTube 验证失败，请上传浏览器 cookies.txt（点击「上传 Cookies」按钮）。'
-            return jsonify({'error': msg}), 400
-        elif any(k in err.lower() for k in ['unavailable', 'removed', 'private']):
-            return jsonify({'error': '该视频不可用、已删除或为私人视频'}), 400
-        else:
-            return jsonify({'error': '获取视频信息失败：' + err[:200]}), 500
+        return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
-        print('[api_get_info 异常] ' + str(e), flush=True)
-        return jsonify({'error': '服务器错误：' + str(e)[:200]}), 500
+        return jsonify({'success': False, 'error': f'Error: {str(e)}'}), 500
 
 
 @app.route('/api/download', methods=['POST'])
 def api_download():
-    data = request.get_json(force=True, silent=True) or {}
+    """启动下载任务"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No JSON body'}), 400
+
     url = data.get('url', '').strip()
     format_id = data.get('format_id', 'bestvideo+bestaudio/best')
     title = data.get('title', 'video')
 
     if not url:
-        return jsonify({'error': '请输入视频链接'}), 400
+        return jsonify({'error': 'URL is required'}), 400
 
-    task_id = str(uuid.uuid4())[:8]
+    task_id = f'{int(time.time() * 1000)}'
     tasks[task_id] = {
-        'status': 'pending', 'progress': 0,
-        'speed': '', 'eta': '',
-        'file': None, 'filename': None, 'error': None,
+        'status': 'pending',
+        'progress': 0,
+        'url': url,
+        'format': format_id,
     }
-    t = threading.Thread(target=download_task, args=(task_id, url, format_id, title), daemon=True)
-    t.start()
-    return jsonify({'success': True, 'task_id': task_id})
+
+    thread = threading.Thread(target=download_task, args=(task_id, url, format_id, title))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({'task_id': task_id})
 
 
 @app.route('/api/progress/<task_id>')
 def api_progress(task_id):
-    if task_id not in tasks:
-        return jsonify({'error': '任务不存在'}), 404
-    task = tasks[task_id].copy()
-    task.pop('file', None)
+    """查询下载进度"""
+    task = tasks.get(task_id)
+    if not task:
+        return jsonify({'status': 'not_found', 'error': 'Task not found'}), 404
     return jsonify(task)
 
 
 @app.route('/api/download-file/<task_id>')
 def api_download_file(task_id):
-    if task_id not in tasks:
-        return jsonify({'error': '任务不存在'}), 404
-    task = tasks[task_id]
-    if task['status'] != 'done':
-        return jsonify({'error': '文件尚未准备好'}), 400
-    file_path = task.get('file')
-    if not file_path or not os.path.exists(file_path):
-        return jsonify({'error': '文件不存在'}), 404
-    return send_file(file_path, as_attachment=True,
-                     download_name=os.path.basename(file_path),
-                     mimetype='video/mp4')
+    """下载完成的文件"""
+    task = tasks.get(task_id)
+    if not task or task['status'] != 'done':
+        return jsonify({'error': 'File not ready'}), 404
 
+    filepath = Path(task['file'])
+    if not filepath.exists():
+        return jsonify({'error': 'File not found'}), 404
+
+    filename = task.get('filename', filepath.name)
+    return send_file(
+        filepath,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='video/mp4'
+    )
+
+
+# ═══════════════════════════════════════════
+# 启动
+# ═══════════════════════════════════════════
 
 if __name__ == '__main__':
-    print('=' * 50, flush=True)
-    print('  YouTube 视频下载工具已启动', flush=True)
-    print('  http://localhost:5050', flush=True)
-    print('  yt-dlp: ' + yt_dlp.version.__version__, flush=True)
-    print('  cookies.txt:', _COOKIES_SRC.exists(), flush=True)
-    print('=' * 50, flush=True)
-    app.run(host='0.0.0.0', port=5050, debug=True, use_reloader=False)
+    print('═' * 50)
+    print('  YouTube 视频下载工具已启动')
+    print(f'  http://localhost:{PORT}')
+    print(f'  cookies.txt: {(BASE_DIR / "cookies.txt").exists()}')
+    print(f'  ffmpeg: {"✓" if check_ffmpeg() else "✗"}')
+    print('═' * 50)
+    app.run(host='0.0.0.0', port=PORT, debug=False, threaded=True)
