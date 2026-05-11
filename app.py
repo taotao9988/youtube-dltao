@@ -241,7 +241,7 @@ def check_ffmpeg():
     return None
 
 # ── 获取 yt-dlp 选项（增强版浏览器模拟） ──
-def get_ydl_opts():
+def get_ydl_opts(use_cookies=False):
     opts = {
         'quiet': False,
         'no_warnings': False,
@@ -287,17 +287,17 @@ def get_ydl_opts():
         'ignoreerrors': False,
     }
 
-    # 检查 cookies.txt
+    # 检查 cookies.txt（仅对需要 cookies 的平台）
     cookies_path = BASE_DIR / 'cookies.txt'
     temp_cookies = None
     
-    if cookies_path.exists():
+    if use_cookies and cookies_path.exists():
         # 复制到无空格路径
         temp_cookies = TEMP_DIR / 'cookies.txt'
         try:
             shutil.copy2(cookies_path, temp_cookies)
             opts['cookiefile'] = str(temp_cookies)
-            print(f'  ✓ cookies loaded')
+            print(f'  ✓ cookies loaded (YouTube only)')
         except Exception as e:
             print(f'  ! cookies copy failed: {e}')
 
@@ -319,7 +319,9 @@ def get_video_info(url):
     """获取视频信息"""
     # 首先尝试 yt-dlp（直接方式）
     try:
-        opts = get_ydl_opts()
+        # 根据 URL 判断是否需要 cookies
+        use_cookies = 'youtube.com' in url or 'youtu.be' in url
+        opts = get_ydl_opts(use_cookies=use_cookies)
         opts['extract_flat'] = False
         opts['skip_download'] = True
 
@@ -449,7 +451,9 @@ def download_task(task_id, url, format_id, title=None):
         elif d['status'] == 'finished':
             tasks[task_id]['progress'] = 99
 
-    dl_opts = get_ydl_opts()
+    # 根据 URL 判断是否需要 cookies
+    use_cookies = 'youtube.com' in url or 'youtu.be' in url
+    dl_opts = get_ydl_opts(use_cookies=use_cookies)
     fmt = pick_format(format_id)
     dl_opts.update({
         'format': fmt,
