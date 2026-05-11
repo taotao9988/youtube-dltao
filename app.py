@@ -18,6 +18,84 @@ from flask_cors import CORS
 # ── yt-dlp ──
 import yt_dlp
 
+# ── Invidious 备用服务器列表 ──
+INVIDIOUS_INSTANCES = [
+    'https://yewtu.be',
+    'https://invidious.privacyredirect.com',
+    'https://inv.nadeko.net',
+    'https://invidious.lunar.icu',
+]
+
+def get_video_info_via_invidious(url):
+    """通过 Invidious 获取视频信息（备用方案）"""
+    import urllib.request
+    import json
+    
+    # 从 URL 提取视频 ID
+    video_id = None
+    if 'youtu.be' in url:
+        video_id = url.split('/')[-1].split('?')[0]
+    elif 'youtube.com' in url:
+        import re
+        match = re.search(r'[?&]v=([^&]+)', url)
+        if match:
+            video_id = match.group(1)
+    
+    if not video_id:
+        return None
+    
+    for instance in INVIDIOUS_INSTANCES:
+        try:
+            api_url = f'{instance}/api/v1/videos/{video_id}'
+            req = urllib.request.Request(
+                api_url,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+                
+            # 解析格式信息
+            formats = []
+            for f in data.get('formatStreams', []):
+                height = int(f.get('resolution', '0').replace('p', '') or '0')
+                if height > 0:
+                    formats.append({
+                        'format_id': f.get('itag', str(height)),
+                        'height': height,
+                        'fps': 30,
+                        'label': f'{height}p',
+                        'ext': f.get('type', 'video/mp4').split('/')[1].split(';')[0],
+                        'size_mb': None,
+                        'score': 0,
+                    })
+            
+            # 去重
+            seen = set()
+            unique_formats = []
+            for f in sorted(formats, key=lambda x: x['height'], reverse=True):
+                if f['height'] not in seen:
+                    seen.add(f['height'])
+                    unique_formats.append(f)
+            
+            return {
+                'title': data.get('title', '未知标题'),
+                'duration': data.get('lengthSeconds', 0),
+                'thumbnail': data.get('thumbnailUrl', ''),
+                'uploader': data.get('author', ''),
+                'view_count': data.get('viewCount', 0),
+                'upload_date': '',
+                'description': '',
+                'formats': unique_formats,
+                'age_limit': 0,
+                'is_live': False,
+                'source': 'invidious',
+            }
+        except Exception as e:
+            print(f'  ! Invidious {instance} failed: {e}')
+            continue
+    
+    return None
+
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
@@ -140,17 +218,32 @@ def get_ydl_opts():
 
 def get_video_info(url):
     """获取视频信息"""
-    opts = get_ydl_opts()
-    opts['extract_flat'] = False
-    opts['skip_download'] = True
+    # 首先尝试 yt-dlp（直接方式）
+    try:
+        opts = get_ydl_opts()
+        opts['extract_flat'] = False
+        opts['skip_download'] = True
 
-    all_formats = []
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        if not info:
-            return None
+        all_formats = []
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                raise ValueError('No info from yt-dlp')
+            
+            all_formats = info.get('formats', [])
+            
+    except Exception as e:
+        print(f'  ! yt-dlp failed: {e}')
+        print('  → Trying Invidious backup...')
         
-        all_formats = info.get('formats', [])
+        # 备用：通过 Invidious 获取
+        inv_info = get_video_info_via_invidious(url)
+        if inv_info:
+            print('  ✓ Invidious worked!')
+            return inv_info
+        else:
+            print('  ✗ All methods failed')
+            return None
 
     # 整理格式（每个分辨率只保留最好的）
     best = {}
@@ -259,9 +352,33 @@ def download_task(task_id, url, format_id, title=None):
         'merge_output_format': 'mp4',
     })
 
+    # 如果 yt-dlp 失败，尝试 Invidious 直接下载
+    download_success = False
     try:
         with yt_dlp.YoutubeDL(dl_opts) as ydl:
             ydl.download([url])
+        download_success = True
+    except Exception as e:
+        print(f'  ! yt-dlp download failed: {e}')
+        print('  → Trying direct download via Invidious...')
+        
+        # 尝试从 Invidious 获取直链并下载
+        inv_info = get_video_info_via_invidious(url)
+        if inv_info and inv_info.get('formats'):
+            try:
+                import urllib.request
+                # 选择最高质量的格式
+                best_format = inv_info['formats'][0]  # 已按高度排序
+                
+                # 这里只是记录，实际下载仍需要 yt-dlp
+                # 因为 Invidious 返回的流可能需要特殊处理
+                print(f'  ! Invidious direct download not implemented, yt-dlp retry...')
+                # 强制重试一次 yt-dlp
+                with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                    ydl.download([url])
+                download_success = True
+            except:
+                pass
 
         # 找下载好的文件
         base = Path(output_path)
