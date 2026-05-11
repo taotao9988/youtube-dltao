@@ -265,21 +265,17 @@ def get_ydl_opts():
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
         },
-        # ── 多播放器客户端策略 + 绕过检测 ──
+        # ── 播放器客户端策略（cookies 需要 web 客户端）──
         'extractor_args': {
             'youtube': {
                 'player_client': [
-                    'web',              # Web 端
-                    'web_embedded',     # Web 嵌入式
-                    'ios',              # iOS 客户端
-                    'android',          # Android 客户端
+                    'web',              # Web 端（支持 cookies）
                 ],
                 'player_skip': ['configs', 'webpage'],
-                # 尝试绕过 bot 检测
-                'visitor_data': None,  # 让 yt-dlp 自动生成
-                'po_token': None,      # 让 yt-dlp 自动生成
             }
         },
+        # cookies 设置（放在顶层）
+        'nocheckcertificate': True,
         # 增加重试次数
         'extractor_retries': 5,
         'file_access_retries': 3,
