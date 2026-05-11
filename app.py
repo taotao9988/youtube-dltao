@@ -330,11 +330,13 @@ def upload_cookies():
 @app.route('/api/info', methods=['POST'])
 def api_info():
     """获取视频信息"""
-    data = request.get_json()
-    if not data:
-        return jsonify({'success': False, 'error': 'No JSON body'}), 400
+    # 同时支持 JSON 和 FormData
+    if request.is_json:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+    else:
+        url = request.form.get('url', '').strip()
     
-    url = data.get('url', '').strip()
     if not url:
         return jsonify({'success': False, 'error': 'URL is required'}), 400
 
@@ -352,13 +354,16 @@ def api_info():
 @app.route('/api/download', methods=['POST'])
 def api_download():
     """启动下载任务"""
-    data = request.get_json()
-    if not data:
-        return jsonify({'error': 'No JSON body'}), 400
-
-    url = data.get('url', '').strip()
-    format_id = data.get('format_id', 'bestvideo+bestaudio/best')
-    title = data.get('title', 'video')
+    # 同时支持 JSON 和 FormData
+    if request.is_json:
+        data = request.get_json()
+        url = data.get('url', '').strip()
+        format_id = data.get('format_id', 'bestvideo+bestaudio/best')
+        title = data.get('title', 'video')
+    else:
+        url = request.form.get('url', '').strip()
+        format_id = request.form.get('format_id', 'bestvideo+bestaudio/best')
+        title = request.form.get('title', 'video')
 
     if not url:
         return jsonify({'error': 'URL is required'}), 400
