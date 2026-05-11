@@ -31,6 +31,14 @@ INVIDIOUS_INSTANCES = [
     'https://yewtu.be',
 ]
 
+# ── Piped 备用服务器列表 ──
+PIPED_INSTANCES = [
+    'https://api.piped.projectsegfault.com',
+    'https://pipedapi.adminforge.de',
+    'https://pipedapi.moomoo.me',
+    'https://api.piped.privacydev.net',
+]
+
 def get_video_info_via_invidious(url):
     """通过 Invidious 获取视频信息（备用方案）"""
     import urllib.request
@@ -100,6 +108,89 @@ def get_video_info_via_invidious(url):
             continue
     
     return None
+
+
+def get_video_info_via_piped(url):
+    """通过 Piped 获取视频信息（第三备用方案）"""
+    import urllib.request
+    import json
+    
+    # 从 URL 提取视频 ID
+    video_id = None
+    if 'youtu.be' in url:
+        video_id = url.split('/')[-1].split('?')[0]
+    elif 'youtube.com' in url:
+        import re
+        match = re.search(r'[?&]v=([^&]+)', url)
+        if match:
+            video_id = match.group(1)
+    
+    if not video_id:
+        return None
+    
+    for instance in PIPED_INSTANCES:
+        try:
+            api_url = f'{instance}/streams/{video_id}'
+            req = urllib.request.Request(
+                api_url,
+                headers={
+                    'User-Agent': 'Mozilla/5.0',
+                    'Accept': 'application/json',
+                }
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read())
+            
+            # 解析视频信息
+            video_details = data.get('videoDetails', {})
+            formats = []
+            
+            # 解析视频流
+            video_streams = data.get('videoStreams', [])
+            for f in video_streams:
+                height = f.get('height', 0)
+                if height > 0:
+                    formats.append({
+                        'format_id': f.get('itag', str(height)),
+                        'height': height,
+                        'fps': f.get('fps', 30),
+                        'label': f'{height}p' + (f'@{f.get("fps", 30)}fps' if f.get('fps', 30) > 30 else ''),
+                        'ext': f.get('codec', 'avc1').split('.')[0],
+                        'size_mb': None,
+                        'score': 0,
+                    })
+            
+            # 去重
+            seen = set()
+            unique_formats = []
+            for f in sorted(formats, key=lambda x: x['height'], reverse=True):
+                if f['height'] not in seen:
+                    seen.add(f['height'])
+                    unique_formats.append(f)
+            
+            if not unique_formats:
+                print(f'  ! Piped {instance} returned no formats')
+                continue
+            
+            return {
+                'title': video_details.get('title', '未知标题'),
+                'duration': video_details.get('lengthSeconds', 0),
+                'thumbnail': video_details.get('thumbnail', {}).get('url', ''),
+                'uploader': video_details.get('channelName', ''),
+                'view_count': video_details.get('viewCount', 0),
+                'upload_date': '',
+                'description': '',
+                'formats': unique_formats,
+                'age_limit': 0,
+                'is_live': False,
+                'source': 'piped',
+            }
+        except Exception as e:
+            print(f'  ! Piped {instance} failed: {e}')
+            continue
+    
+    return None
+
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
