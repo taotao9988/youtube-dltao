@@ -554,6 +554,17 @@ def upload_cookies():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+import re
+
+def extract_url(text):
+    """从文本中提取 URL"""
+    # 匹配 http/https URL
+    url_pattern = r'https?://[^\s<>"\']+'
+    match = re.search(url_pattern, text)
+    if match:
+        return match.group(0)
+    return text.strip()
+
 @app.route('/api/info', methods=['POST'])
 def api_info():
     """获取视频信息"""
@@ -563,6 +574,9 @@ def api_info():
         url = data.get('url', '').strip()
     else:
         url = request.form.get('url', '').strip()
+    
+    # 从文本中提取 URL（处理抖音等分享链接）
+    url = extract_url(url)
     
     if not url:
         return jsonify({'success': False, 'error': 'URL is required'}), 400
@@ -591,6 +605,9 @@ def api_download():
         url = request.form.get('url', '').strip()
         format_id = request.form.get('format_id', 'bestvideo+bestaudio/best')
         title = request.form.get('title', 'video')
+    
+    # 从文本中提取 URL
+    url = extract_url(url)
 
     if not url:
         return jsonify({'error': 'URL is required'}), 400
