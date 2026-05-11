@@ -265,11 +265,13 @@ def get_ydl_opts(use_cookies=False):
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
         },
-        # ── 播放器客户端策略（cookies 需要 web 客户端）──
+        # ── 播放器客户端策略（多种客户端轮换）──
         'extractor_args': {
             'youtube': {
                 'player_client': [
-                    'web',              # Web 端（支持 cookies）
+                    'ios',              # iOS 客户端（较少被封锁）
+                    'mweb',             # 移动网页版
+                    'web',              # Web 端（需要 cookies）
                 ],
                 'player_skip': ['configs', 'webpage'],
             }
@@ -277,14 +279,16 @@ def get_ydl_opts(use_cookies=False):
         # cookies 设置（放在顶层）
         'nocheckcertificate': True,
         # 增加重试次数
-        'extractor_retries': 5,
-        'file_access_retries': 3,
-        'fragment_retries': 3,
+        'extractor_retries': 10,  # 增加重试
+        'file_access_retries': 5,
+        'fragment_retries': 5,
         'format_sort': [
             'quality', 'res', 'fps', 
             'hdr:12', 'vcodec:avc', 'acodec:mp4a'
         ],
         'ignoreerrors': False,
+        # 允许更新
+        'nocheckcertificate': True,
     }
 
     # 检查 cookies.txt（仅对需要 cookies 的平台）
