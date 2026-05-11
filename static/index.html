@@ -3,1230 +3,635 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="免费的在线YouTube视频下载工具，支持多平台视频解析下载">
-    <meta name="keywords" content="YouTube下载,视频下载,油管下载,在线下载">
-    <title>YouTube视频下载器 - 在线解析下载保存到手机、电脑</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>全能视频下载器</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
-        :root {
-            --primary-color: #ff0033;
-            --primary-hover: #d40029;
-            --bg-color: #f5f5f7;
-            --card-bg: #ffffff;
-            --text-primary: #1d1d1f;
-            --text-secondary: #86868b;
-            --border-color: #d2d2d7;
-            --success-color: #34c759;
-            --warning-color: #ff9500;
-        }
-
+        
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
-            line-height: 1.6;
+            color: #fff;
         }
-
+        
         .container {
             max-width: 900px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 40px 20px;
         }
-
-        /* Header */
-        .header {
-            background: var(--card-bg);
-            padding: 16px 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            text-decoration: none;
-        }
-
-        .logo svg {
-            width: 36px;
-            height: 36px;
-        }
-
-        .platforms {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .platform-tag {
-            padding: 6px 12px;
-            background: #f0f0f0;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .platform-tag:hover,
-        .platform-tag.active {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        /* Main Content */
-        .main {
-            padding: 60px 0;
-        }
-
-        .hero {
-            text-align: center;
-            margin-bottom: 50px;
-        }
-
-        .hero h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 16px;
-            color: var(--text-primary);
-        }
-
-        .hero p {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        /* Download Card */
-        .download-card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        }
-
-        .input-group {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .input-wrapper {
-            flex: 1;
-            position: relative;
-        }
-
-        .input-wrapper input {
-            width: 100%;
-            padding: 16px 20px 16px 50px;
-            font-size: 1rem;
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .input-wrapper input:focus {
-            border-color: var(--primary-color);
-        }
-
-        .input-icon {
-            position: absolute;
-            left: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-secondary);
-        }
-
-        .btn {
-            padding: 16px 32px;
-            font-size: 1rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn-primary:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: var(--text-primary);
-        }
-
-        .btn-secondary:hover {
-            background: #e5e5e5;
-        }
-
-        /* Video Info */
-        .video-info {
-            display: none;
-            margin-top: 30px;
-            padding-top: 30px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .video-info.show {
-            display: block;
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .video-preview {
-            display: flex;
-            gap: 24px;
-            margin-bottom: 24px;
-        }
-
-        .video-thumbnail {
-            width: 280px;
-            flex-shrink: 0;
-        }
-
-        .video-thumbnail img {
-            width: 100%;
-            border-radius: 12px;
-            aspect-ratio: 16/9;
-            object-fit: cover;
-        }
-
-        .video-details {
-            flex: 1;
-        }
-
-        .video-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 12px;
-            line-height: 1.4;
-        }
-
-        .video-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .meta-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        .meta-item svg {
-            width: 16px;
-            height: 16px;
-        }
-
-        /* Quality Selection */
-        .quality-section {
-            margin-bottom: 24px;
-        }
-
-        .quality-title {
-            font-weight: 600;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .quality-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 10px;
-        }
-
-        .quality-option {
-            padding: 12px 16px;
-            background: #f5f5f7;
-            border: 2px solid transparent;
-            border-radius: 10px;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s;
-        }
-
-        .quality-option:hover {
-            border-color: var(--primary-color);
-        }
-
-        .quality-option.selected {
-            border-color: var(--primary-color);
-            background: rgba(255, 0, 51, 0.05);
-        }
-
-        .quality-res {
-            font-weight: 600;
-            font-size: 1rem;
-            color: var(--text-primary);
-        }
-
-        .quality-size {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            margin-top: 4px;
-        }
-
-        /* Download Progress */
-        .progress-section {
-            display: none;
-            margin-bottom: 24px;
-        }
-
-        .progress-section.show {
-            display: block;
-        }
-
-        .progress-bar-container {
-            background: #f0f0f0;
-            border-radius: 10px;
-            height: 20px;
-            overflow: hidden;
-            margin-bottom: 12px;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-color), #ff4466);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
-        /* Download Actions */
-        .download-actions {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .download-actions .btn {
-            flex: 1;
-            min-width: 150px;
-            justify-content: center;
-        }
-
-        /* Error Message */
-        .error-message {
-            display: none;
-            padding: 16px 20px;
-            background: #fff5f5;
-            border: 1px solid #ffcccc;
-            border-radius: 12px;
-            color: #d40029;
-            margin-top: 20px;
-        }
-
-        .error-message.show {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Loading Spinner */
-        .spinner {
-            display: none;
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-
-        .spinner.show {
-            display: inline-block;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* FAQ Section */
-        .faq-section {
-            margin-top: 60px;
-        }
-
-        .faq-title {
-            font-size: 1.5rem;
-            font-weight: 700;
+        
+        header {
             text-align: center;
             margin-bottom: 40px;
         }
-
-        .faq-item {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
         }
-
-        .faq-question {
-            font-weight: 600;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        
+        header p {
+            color: #a0a0a0;
+            font-size: 1.1rem;
         }
-
-        .faq-question::before {
-            content: "Q";
-            width: 28px;
-            height: 28px;
-            background: var(--primary-color);
-            color: white;
-            border-radius: 50%;
+        
+        .platform-badges {
             display: flex;
-            align-items: center;
+            flex-wrap: wrap;
             justify-content: center;
-            font-size: 0.9rem;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .platform-badge {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 16px 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        .input-group input:focus {
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .input-group input::placeholder {
+            color: #666;
+        }
+        
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            display: none;
+            background: rgba(255, 82, 82, 0.1);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            border-radius: 12px;
+            padding: 15px 20px;
+            color: #ff5252;
+            margin-bottom: 20px;
+        }
+        
+        .error-message.active {
+            display: block;
+        }
+        
+        .video-info {
+            display: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .video-info.active {
+            display: block;
+        }
+        
+        .video-header {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .video-thumbnail {
+            width: 200px;
+            height: 120px;
+            border-radius: 10px;
+            object-fit: cover;
             flex-shrink: 0;
         }
-
-        .faq-answer {
-            color: var(--text-secondary);
-            padding-left: 38px;
-            line-height: 1.7;
+        
+        .video-details {
+            flex: 1;
         }
-
-        /* Tips Section */
-        .tips-section {
-            margin-top: 40px;
-            padding: 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            color: white;
+        
+        .video-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #fff;
         }
-
-        .tips-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 20px;
+        
+        .video-meta {
             display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .tips-list {
-            list-style: none;
-        }
-
-        .tips-list li {
-            padding: 10px 0;
-            padding-left: 28px;
-            position: relative;
-        }
-
-        .tips-list li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            font-weight: 700;
-        }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-secondary);
+            flex-wrap: wrap;
+            gap: 15px;
+            color: #a0a0a0;
             font-size: 0.9rem;
         }
-
-        .footer a {
-            color: var(--primary-color);
-            text-decoration: none;
+        
+        .video-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                gap: 16px;
-            }
-
-            .hero h1 {
-                font-size: 1.8rem;
-            }
-
-            .download-card {
-                padding: 24px;
-            }
-
+        
+        .quality-section {
+            margin-top: 20px;
+        }
+        
+        .quality-title {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .quality-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+        }
+        
+        .quality-item {
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .quality-item:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+        
+        .quality-item.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.2);
+        }
+        
+        .quality-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 5px;
+        }
+        
+        .quality-size {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+        }
+        
+        .download-section {
+            margin-top: 25px;
+            text-align: center;
+        }
+        
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .progress-container.active {
+            display: block;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+        
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+        
+        .faq-section {
+            margin-top: 50px;
+        }
+        
+        .faq-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .faq-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .faq-question {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .faq-answer {
+            color: #a0a0a0;
+            line-height: 1.6;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        
+        @media (max-width: 600px) {
             .input-group {
                 flex-direction: column;
             }
-
+            
             .btn {
                 width: 100%;
             }
-
-            .video-preview {
+            
+            .video-header {
                 flex-direction: column;
             }
-
+            
             .video-thumbnail {
                 width: 100%;
+                height: auto;
             }
-
-            .quality-grid {
-                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            }
-
-            .download-actions {
-                flex-direction: column;
-            }
-
-            .download-actions .btn {
-                width: 100%;
-            }
-
-            .faq-answer {
-                padding-left: 0;
-                margin-top: 10px;
-            }
-        }
-
-        /* Cookies Upload */
-        .cookies-section {
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px dashed var(--border-color);
-        }
-
-        .cookies-toggle {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-
-        .cookies-toggle input {
-            display: none;
-        }
-
-        .cookies-checkbox {
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--border-color);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .cookies-toggle input:checked + .cookies-checkbox {
-            background: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-
-        .cookies-toggle input:checked + .cookies-checkbox::after {
-            content: "✓";
-            color: white;
-            font-size: 12px;
-        }
-
-        .cookies-upload {
-            display: none;
-            margin-top: 16px;
-            padding: 20px;
-            background: #f9f9f9;
-            border-radius: 12px;
-        }
-
-        .cookies-upload.show {
-            display: block;
-        }
-
-        .file-input-wrapper {
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }
-
-        .file-input-wrapper input[type="file"] {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .file-input-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 16px;
-            background: white;
-            border: 2px dashed var(--border-color);
-            border-radius: 10px;
-            color: var(--text-secondary);
-            transition: all 0.2s;
-        }
-
-        .file-input-wrapper:hover .file-input-label {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-        }
-
-        .cookies-status {
-            margin-top: 12px;
-            font-size: 0.85rem;
-            color: var(--success-color);
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <a href="/" class="logo">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                </svg>
-                视频下载器
-            </a>
-            <div class="platforms">
-                <span class="platform-tag active">YouTube</span>
-                <span class="platform-tag">Twitter</span>
-                <span class="platform-tag">Instagram</span>
-                <span class="platform-tag">Facebook</span>
+    <div class="container">
+        <header>
+            <h1>🎬 全能视频下载器</h1>
+            <p>支持抖音、B站、快手、TikTok、Instagram 等多平台视频下载</p>
+            <div class="platform-badges">
+                <span class="platform-badge">🎵 抖音</span>
+                <span class="platform-badge">📺 哔哩哔哩</span>
+                <span class="platform-badge">🎥 快手</span>
+                <span class="platform-badge">🌸 小红书</span>
+                <span class="platform-badge">📱 TikTok</span>
+                <span class="platform-badge">📸 Instagram</span>
+                <span class="platform-badge">🐦 Twitter</span>
+                <span class="platform-badge">📺 Facebook</span>
+                <span class="platform-badge">▶️ YouTube</span>
+            </div>
+        </header>
+        
+        <div class="input-section">
+            <div class="input-group">
+                <input type="text" id="videoUrl" placeholder="粘贴视频链接，如：https://www.douyin.com/video/xxx">
+                <button class="btn btn-primary" id="parseBtn" onclick="parseVideo()">解析</button>
+            </div>
+            
+            <div class="error-message" id="errorMsg"></div>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>正在解析视频...</p>
             </div>
         </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="main">
-        <div class="container">
-            <!-- Hero -->
-            <div class="hero">
-                <h1>免费在线视频下载</h1>
-                <p>粘贴视频链接，一键解析下载。支持 YouTube、Twitter、Instagram 等多个平台</p>
-            </div>
-
-            <!-- Download Card -->
-            <div class="download-card">
-                <!-- Input Section -->
-                <div class="input-group">
-                    <div class="input-wrapper">
-                        <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                        </svg>
-                        <input type="text" id="videoUrl" placeholder="粘贴视频链接地址..." autocomplete="off">
-                    </div>
-                    <button class="btn btn-primary" id="parseBtn" onclick="parseVideo()">
-                        <span class="btn-text">解析视频</span>
-                        <span class="spinner"></span>
-                    </button>
-                </div>
-
-                <!-- Error Message -->
-                <div class="error-message" id="errorMessage">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-                    </svg>
-                    <span id="errorText"></span>
-                </div>
-
-                <!-- Video Info -->
-                <div class="video-info" id="videoInfo">
-                    <div class="video-preview">
-                        <div class="video-thumbnail">
-                            <img id="thumbnail" src="" alt="视频封面">
-                        </div>
-                        <div class="video-details">
-                            <h2 class="video-title" id="videoTitle"></h2>
-                            <div class="video-meta">
-                                <span class="meta-item">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                                        <circle cx="12" cy="7" r="4"/>
-                                    </svg>
-                                    <span id="author"></span>
-                                </span>
-                                <span class="meta-item">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                        <circle cx="12" cy="12" r="3"/>
-                                    </svg>
-                                    <span id="views"></span>
-                                </span>
-                                <span class="meta-item">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"/>
-                                        <polyline points="12 6 12 12 16 14"/>
-                                    </svg>
-                                    <span id="duration"></span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quality Selection -->
-                    <div class="quality-section">
-                        <div class="quality-title">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="23 7 16 12 23 17 23 7"/>
-                                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-                            </svg>
-                            选择画质
-                        </div>
-                        <div class="quality-grid" id="qualityGrid">
-                            <!-- Quality options will be dynamically added -->
-                        </div>
-                    </div>
-
-                    <!-- Progress Section -->
-                    <div class="progress-section" id="progressSection">
-                        <div class="progress-bar-container">
-                            <div class="progress-bar" id="progressBar"></div>
-                        </div>
-                        <div class="progress-info">
-                            <span id="progressText">准备下载...</span>
-                            <span id="progressPercent">0%</span>
-                        </div>
-                    </div>
-
-                    <!-- Download Actions -->
-                    <div class="download-actions">
-                        <button class="btn btn-primary" id="downloadBtn" onclick="startDownload()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="7 10 12 15 17 10"/>
-                                <line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            开始下载
-                        </button>
-                        <button class="btn btn-secondary" onclick="resetForm()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="1 4 1 10 7 10"/>
-                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
-                            </svg>
-                            重新解析
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Cookies Section -->
-                <div class="cookies-section">
-                    <label class="cookies-toggle" onclick="toggleCookiesUpload()">
-                        <input type="checkbox" id="useCookies">
-                        <span class="cookies-checkbox"></span>
-                        <span>需要登录？上传 cookies.txt（下载年龄限制视频）</span>
-                    </label>
-                    <div class="cookies-upload" id="cookiesUpload">
-                        <div class="file-input-wrapper">
-                            <input type="file" id="cookiesFile" accept=".txt" onchange="handleCookiesFile(event)">
-                            <div class="file-input-label">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                    <polyline points="14 2 14 8 20 8"/>
-                                </svg>
-                                <span id="cookiesLabel">点击选择 cookies.txt 文件</span>
-                            </div>
-                        </div>
-                        <div class="cookies-status" id="cookiesStatus"></div>
+        
+        <div class="video-info" id="videoInfo">
+            <div class="video-header">
+                <img class="video-thumbnail" id="videoThumbnail" src="" alt="缩略图">
+                <div class="video-details">
+                    <div class="video-title" id="videoTitle">视频标题</div>
+                    <div class="video-meta">
+                        <span id="videoAuthor">👤 作者</span>
+                        <span id="videoDuration">⏱️ 时长</span>
+                        <span id="videoViews">👁️ 观看</span>
                     </div>
                 </div>
             </div>
-
-            <!-- Tips Section -->
-            <div class="tips-section">
-                <div class="tips-title">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                    </svg>
-                    使用提示
-                </div>
-                <ul class="tips-list">
-                    <li>复制视频链接，粘贴到上方输入框，点击解析即可下载</li>
-                    <li>支持最高 4K 分辨率下载，画质越高文件越大</li>
-                    <li>iOS 用户请使用 Documents App 内置浏览器下载</li>
-                    <li>如遇年龄限制视频，请上传浏览器 cookies 文件</li>
-                    <li>部分视频可能因版权原因无法下载</li>
-                </ul>
+            
+            <div class="quality-section">
+                <div class="quality-title">选择画质</div>
+                <div class="quality-grid" id="qualityGrid"></div>
             </div>
-
-            <!-- FAQ Section -->
-            <div class="faq-section">
-                <h2 class="faq-title">常见问题</h2>
-                
-                <div class="faq-item">
-                    <div class="faq-question">如何下载 YouTube 视频？</div>
-                    <div class="faq-answer">
-                        只需三步：1. 复制 YouTube 视频链接；2. 粘贴到上方输入框；3. 点击"解析视频"，选择画质后点击"开始下载"。
-                    </div>
+            
+            <div class="download-section">
+                <button class="btn btn-primary" id="downloadBtn" onclick="downloadVideo()">下载视频</button>
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
                 </div>
-
-                <div class="faq-item">
-                    <div class="faq-question">支持哪些平台？</div>
-                    <div class="faq-answer">
-                        目前支持 YouTube、Twitter、Instagram、Facebook 等主流视频平台。我们会持续添加更多平台支持。
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <div class="faq-question">为什么有些视频无法下载？</div>
-                    <div class="faq-answer">
-                        可能原因：1. 视频设置了地理限制；2. 视频为年龄限制内容；3. 视频因版权问题被限制；4. 视频已下架或设为私密。
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <div class="faq-question">如何下载年龄限制的视频？</div>
-                    <div class="faq-answer">
-                        勾选"上传 cookies.txt"选项，从浏览器导出 cookies 文件并上传，即可下载年龄限制视频。
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <div class="faq-question">手机如何使用？</div>
-                    <div class="faq-answer">
-                        Android 手机可直接在浏览器中打开使用。iOS 用户建议使用 Documents App 内置浏览器打开，以支持直接下载视频到本地。
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <div class="faq-question">下载的视频格式是什么？</div>
-                    <div class="faq-answer">
-                        下载的视频通常为 MP4 格式。如果选择最高画质下载，可能需要等待系统自动合并音频和视频。
-                    </div>
+                <div class="progress-text">
+                    <span id="progressPercent">0%</span>
+                    <span id="progressSpeed"></span>
                 </div>
             </div>
-
-            <!-- Footer -->
-            <footer class="footer">
-                <p>本工具仅供学习交流使用，请勿用于商业或非法用途</p>
-                <p style="margin-top: 10px;">Powered by <a href="https://github.com/taotao9988/youtube-dltao" target="_blank">youtube-dltao</a></p>
-            </footer>
         </div>
-    </main>
-
+        
+        <div class="faq-section">
+            <h2 class="faq-title">常见问题</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: 支持哪些平台？</div>
+                <div class="faq-answer">支持抖音、快手、B站(哔哩哔哩)、小红书、微博、TikTok、Instagram、Twitter/X、Facebook、YouTube 等主流视频平台。</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: 为什么有些视频解析失败？</div>
+                <div class="faq-answer">可能是因为：1) 视频设置了权限不允许下载 2) 链接已失效 3) 网络不稳定。建议稍后重试。</div>
+            </div>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: 下载的视频清晰度如何？</div>
+                <div class="faq-answer">系统会自动获取最高可用清晰度。你也可以手动选择其他画质选项。</div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2026 全能视频下载器 | 仅供学习交流使用</p>
+        </footer>
+    </div>
+    
     <script>
-        // State
+        let currentTaskId = null;
+        let selectedFormat = null;
         let videoData = null;
-        let selectedQuality = null;
-        let taskId = null;
-        let progressInterval = null;
-
-        // API Base URL - 根据部署环境调整
-        const API_BASE = '';  // 部署时留空使用相对路径，或填入实际地址如 'https://youtube-dltao1.onrender.com'
-
-        // Platform detection regex
-        const PLATFORMS = {
-            youtube: /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/,
-            twitter: /^(https?:\/\/)?(www\.)?(twitter\.com|x\.com)\/.+/,
-            instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/.+/,
-            facebook: /^(https?:\/\/)?(www\.)?facebook\.com\/.+/
-        };
-
-        // Parse video URL
-        async function parseVideo() {
-            const url = document.getElementById('videoUrl').value.trim();
-            
-            if (!url) {
-                showError('请输入视频链接');
-                return;
-            }
-
-            // Detect platform
-            let platform = 'unknown';
-            for (const [name, regex] of Object.entries(PLATFORMS)) {
-                if (regex.test(url)) {
-                    platform = name;
-                    break;
-                }
-            }
-
-            if (platform === 'unknown') {
-                showError('暂不支持该平台，请输入有效的视频链接');
-                return;
-            }
-
-            // Update platform tags
-            document.querySelectorAll('.platform-tag').forEach(tag => {
-                tag.classList.toggle('active', tag.textContent.toLowerCase() === platform);
-            });
-
-            // Show loading
-            setLoading(true);
-            hideError();
-            document.getElementById('videoInfo').classList.remove('show');
-
-            try {
-                const formData = new FormData();
-                formData.append('url', url);
-
-                // Add cookies if provided
-                const useCookies = document.getElementById('useCookies').checked;
-                if (useCookies && window.cookiesFile) {
-                    formData.append('cookies', window.cookiesFile);
-                }
-
-                const response = await fetch(API_BASE + '/api/info', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || '解析失败');
-                }
-
-                const data = await response.json();
-                videoData = data;
-                displayVideoInfo(data);
-
-            } catch (error) {
-                showError(error.message || '解析失败，请检查链接是否正确');
-            } finally {
-                setLoading(false);
-            }
+        
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.textContent = msg;
+            el.classList.add('active');
         }
-
-        // Display video information
-        function displayVideoInfo(data) {
-            const videoInfo = document.getElementById('videoInfo');
-            
-            // Set thumbnail
-            document.getElementById('thumbnail').src = data.thumbnail || '';
-            document.getElementById('videoTitle').textContent = data.title || '未知标题';
-            document.getElementById('author').textContent = data.author || '未知作者';
-            document.getElementById('views').textContent = formatNumber(data.views || 0);
-            document.getElementById('duration').textContent = formatDuration(data.duration || 0);
-
-            // Generate quality options
-            const qualityGrid = document.getElementById('qualityGrid');
-            qualityGrid.innerHTML = '';
-
-            const formats = data.formats || [];
-            
-            // Sort by quality (height) descending
-            const sortedFormats = formats.sort((a, b) => (b.height || 0) - (a.height || 0));
-
-            sortedFormats.forEach((format, index) => {
-                const quality = format.height ? `${format.height}p` : 'audio';
-                const size = format.filesize ? formatFilesize(format.filesize) : '未知';
-                const formatId = format.format_id;
-
-                const option = document.createElement('div');
-                option.className = 'quality-option' + (index === 0 ? ' selected' : '');
-                option.dataset.formatId = formatId;
-                option.dataset.quality = quality;
-                option.onclick = () => selectQuality(option, formatId);
-
-                option.innerHTML = `
-                    <div class="quality-res">${quality}</div>
-                    <div class="quality-size">${size}</div>
-                `;
-
-                qualityGrid.appendChild(option);
-            });
-
-            // Default selection
-            selectedQuality = sortedFormats[0]?.format_id;
-
-            videoInfo.classList.add('show');
-        }
-
-        // Select quality
-        function selectQuality(element, formatId) {
-            document.querySelectorAll('.quality-option').forEach(opt => {
-                opt.classList.remove('selected');
-            });
-            element.classList.add('selected');
-            selectedQuality = formatId;
-        }
-
-        // Start download
-        async function startDownload() {
-            if (!videoData || !selectedQuality) {
-                showError('请先解析视频并选择画质');
-                return;
-            }
-
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.disabled = true;
-            downloadBtn.innerHTML = `
-                <span class="spinner show"></span>
-                准备下载...
-            `;
-
-            document.getElementById('progressSection').classList.add('show');
-            document.getElementById('progressBar').style.width = '0%';
-            document.getElementById('progressPercent').textContent = '0%';
-            document.getElementById('progressText').textContent = '准备下载...';
-
-            try {
-                const formData = new FormData();
-                formData.append('url', document.getElementById('videoUrl').value.trim());
-                formData.append('format_id', selectedQuality);
-
-                // Add cookies if provided
-                const useCookies = document.getElementById('useCookies').checked;
-                if (useCookies && window.cookiesFile) {
-                    formData.append('cookies', window.cookiesFile);
-                }
-
-                const response = await fetch(API_BASE + '/api/download', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || '下载失败');
-                }
-
-                const data = await response.json();
-                taskId = data.task_id;
-
-                // Start polling progress
-                pollProgress();
-
-            } catch (error) {
-                showError(error.message || '下载失败');
-                resetDownloadBtn();
-            }
-        }
-
-        // Poll download progress
-        function pollProgress() {
-            if (!taskId) return;
-
-            progressInterval = setInterval(async () => {
-                try {
-                    const response = await fetch(API_BASE + `/api/progress/${taskId}`);
-                    
-                    if (!response.ok) {
-                        clearInterval(progressInterval);
-                        return;
-                    }
-
-                    const data = await response.json();
-                    updateProgress(data);
-
-                    if (data.status === 'completed') {
-                        clearInterval(progressInterval);
-                        downloadFile(taskId);
-                    } else if (data.status === 'error') {
-                        clearInterval(progressInterval);
-                        showError(data.error || '下载出错');
-                        resetDownloadBtn();
-                    }
-
-                } catch (error) {
-                    clearInterval(progressInterval);
-                }
-            }, 1000);
-        }
-
-        // Update progress display
-        function updateProgress(data) {
-            const percent = data.progress || 0;
-            const speed = data.speed ? formatSpeed(data.speed) : '';
-            const eta = data.eta ? formatEta(data.eta) : '';
-
-            document.getElementById('progressBar').style.width = `${percent}%`;
-            document.getElementById('progressPercent').textContent = `${Math.round(percent)}%`;
-            document.getElementById('progressText').textContent = 
-                speed || eta ? `速度: ${speed} 剩余: ${eta}` : `已下载 ${Math.round(percent)}%`;
-        }
-
-        // Download file
-        function downloadFile(taskId) {
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                下载完成！
-            `;
-
-            // Trigger file download
-            const link = document.createElement('a');
-            link.href = API_BASE + `/api/download-file/${taskId}`;
-            link.download = videoData.title + '.mp4';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            setTimeout(resetDownloadBtn, 3000);
-        }
-
-        // Reset download button
-        function resetDownloadBtn() {
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.disabled = false;
-            downloadBtn.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                开始下载
-            `;
-        }
-
-        // Reset form
-        function resetForm() {
-            document.getElementById('videoUrl').value = '';
-            document.getElementById('videoInfo').classList.remove('show');
-            document.getElementById('progressSection').classList.remove('show');
-            document.getElementById('errorMessage').classList.remove('show');
-            videoData = null;
-            selectedQuality = null;
-            taskId = null;
-            if (progressInterval) {
-                clearInterval(progressInterval);
-            }
-        }
-
-        // Toggle cookies upload
-        function toggleCookiesUpload() {
-            const checkbox = document.getElementById('useCookies');
-            checkbox.checked = !checkbox.checked;
-            const upload = document.getElementById('cookiesUpload');
-            upload.classList.toggle('show', checkbox.checked);
-        }
-
-        // Handle cookies file
-        function handleCookiesFile(event) {
-            const file = event.target.files[0];
-            if (file) {
-                window.cookiesFile = file;
-                document.getElementById('cookiesLabel').textContent = file.name;
-                document.getElementById('cookiesStatus').textContent = '✓ 文件已选择';
-            }
-        }
-
-        // Utility functions
-        function setLoading(loading) {
-            const btn = document.getElementById('parseBtn');
-            const btnText = btn.querySelector('.btn-text');
-            const spinner = btn.querySelector('.spinner');
-            
-            btn.disabled = loading;
-            btnText.textContent = loading ? '解析中...' : '解析视频';
-            spinner.classList.toggle('show', loading);
-        }
-
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            document.getElementById('errorText').textContent = message;
-            errorDiv.classList.add('show');
-        }
-
+        
         function hideError() {
-            document.getElementById('errorMessage').classList.remove('show');
+            document.getElementById('errorMsg').classList.remove('active');
         }
-
-        function formatNumber(num) {
-            if (num >= 100000000) return (num / 100000000).toFixed(1) + '亿';
-            if (num >= 10000) return (num / 10000).toFixed(1) + '万';
-            return num.toString();
+        
+        function showLoading() {
+            document.getElementById('loading').classList.add('active');
+            document.getElementById('videoInfo').classList.remove('active');
+            hideError();
         }
-
+        
+        function hideLoading() {
+            document.getElementById('loading').classList.remove('active');
+        }
+        
         function formatDuration(seconds) {
+            if (!seconds) return '未知';
             const h = Math.floor(seconds / 3600);
             const m = Math.floor((seconds % 3600) / 60);
             const s = seconds % 60;
             if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             return `${m}:${s.toString().padStart(2, '0')}`;
         }
-
-        function formatFilesize(bytes) {
-            if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
-            if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-            if (bytes >= 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return bytes + ' B';
+        
+        function formatViews(count) {
+            if (!count) return '未知';
+            if (count >= 100000000) return (count / 100000000).toFixed(1) + '亿';
+            if (count >= 10000) return (count / 10000).toFixed(1) + '万';
+            return count.toString();
         }
-
-        function formatSpeed(bytesPerSec) {
-            return formatFilesize(bytesPerSec) + '/s';
-        }
-
-        function formatEta(seconds) {
-            if (seconds < 60) return `${seconds}s`;
-            const m = Math.floor(seconds / 60);
-            const s = seconds % 60;
-            return `${m}分${s}秒`;
-        }
-
-        // Enter key to parse
-        document.getElementById('videoUrl').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                parseVideo();
+        
+        function parseVideo() {
+            const url = document.getElementById('videoUrl').value.trim();
+            if (!url) {
+                showError('请输入视频链接');
+                return;
             }
+            
+            showLoading();
+            document.getElementById('parseBtn').disabled = true;
+            
+            const formData = new FormData();
+            formData.append('url', url);
+            
+            fetch('/api/info', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                hideLoading();
+                document.getElementById('parseBtn').disabled = false;
+                
+                if (data.success) {
+                    videoData = data.data;
+                    showVideoInfo(data.data);
+                } else {
+                    showError(data.error || '解析失败，请检查链接是否正确');
+                }
+            })
+            .catch(err => {
+                hideLoading();
+                document.getElementById('parseBtn').disabled = false;
+                showError('网络错误，请稍后重试');
+                console.error(err);
+            });
+        }
+        
+        function showVideoInfo(info) {
+            document.getElementById('videoInfo').classList.add('active');
+            document.getElementById('videoTitle').textContent = info.title || '未知标题';
+            document.getElementById('videoThumbnail').src = info.thumbnail || '';
+            document.getElementById('videoAuthor').textContent = '👤 ' + (info.uploader || '未知作者');
+            document.getElementById('videoDuration').textContent = '⏱️ ' + formatDuration(info.duration);
+            document.getElementById('videoViews').textContent = '👁️ ' + formatViews(info.view_count);
+            
+            // 渲染画质选项
+            const grid = document.getElementById('qualityGrid');
+            grid.innerHTML = '';
+            
+            if (info.formats && info.formats.length > 0) {
+                info.formats.forEach((f, i) => {
+                    const item = document.createElement('div');
+                    item.className = 'quality-item' + (i === 0 ? ' selected' : '');
+                    item.onclick = () => selectQuality(item, f);
+                    item.innerHTML = `
+                        <div class="quality-label">${f.label || f.height + 'p'}</div>
+                        <div class="quality-size">${f.size_mb ? f.size_mb + ' MB' : '自动'}</div>
+                    `;
+                    item.dataset.formatId = f.format_id || f.label || 'best';
+                    grid.appendChild(item);
+                });
+                selectedFormat = info.formats[0].format_id || info.formats[0].label || 'best';
+            } else {
+                const item = document.createElement('div');
+                item.className = 'quality-item selected';
+                item.innerHTML = `<div class="quality-label">自动</div><div class="quality-size">最佳画质</div>`;
+                item.dataset.formatId = 'best';
+                grid.appendChild(item);
+                selectedFormat = 'best';
+            }
+        }
+        
+        function selectQuality(el, format) {
+            document.querySelectorAll('.quality-item').forEach(e => e.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedFormat = el.dataset.formatId;
+        }
+        
+        function downloadVideo() {
+            if (!videoData) return;
+            
+            document.getElementById('downloadBtn').disabled = true;
+            document.getElementById('progressContainer').classList.add('active');
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressPercent').textContent = '0%';
+            document.getElementById('progressSpeed').textContent = '';
+            
+            const formData = new FormData();
+            formData.append('url', document.getElementById('videoUrl').value.trim());
+            formData.append('format_id', selectedFormat);
+            formData.append('title', videoData.title || 'video');
+            
+            fetch('/api/download', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.task_id) {
+                    currentTaskId = data.task_id;
+                    checkProgress();
+                } else {
+                    showError('启动下载失败');
+                    document.getElementById('downloadBtn').disabled = false;
+                }
+            })
+            .catch(err => {
+                showError('网络错误');
+                document.getElementById('downloadBtn').disabled = false;
+            });
+        }
+        
+        function checkProgress() {
+            if (!currentTaskId) return;
+            
+            fetch(`/api/progress/${currentTaskId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'downloading') {
+                    const pct = data.progress || 0;
+                    document.getElementById('progressFill').style.width = pct + '%';
+                    document.getElementById('progressPercent').textContent = pct + '%';
+                    if (data.speed) {
+                        document.getElementById('progressSpeed').textContent = data.speed;
+                    }
+                    setTimeout(checkProgress, 500);
+                } else if (data.status === 'done') {
+                    document.getElementById('progressFill').style.width = '100%';
+                    document.getElementById('progressPercent').textContent = '完成！';
+                    document.getElementById('progressSpeed').textContent = '';
+                    // 自动下载文件
+                    window.location.href = `/api/download-file/${currentTaskId}`;
+                    document.getElementById('downloadBtn').disabled = false;
+                    currentTaskId = null;
+                } else if (data.status === 'error') {
+                    showError('下载失败: ' + (data.error || '未知错误'));
+                    document.getElementById('downloadBtn').disabled = false;
+                    document.getElementById('progressContainer').classList.remove('active');
+                } else {
+                    setTimeout(checkProgress, 500);
+                }
+            })
+            .catch(err => {
+                setTimeout(checkProgress, 1000);
+            });
+        }
+        
+        // 回车键解析
+        document.getElementById('videoUrl').addEventListener('keypress', e => {
+            if (e.key === 'Enter') parseVideo();
         });
     </script>
 </body>
