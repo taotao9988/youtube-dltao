@@ -265,7 +265,7 @@ def get_ydl_opts():
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0',
         },
-        # ── 多播放器客户端策略 ──
+        # ── 多播放器客户端策略 + 绕过检测 ──
         'extractor_args': {
             'youtube': {
                 'player_client': [
@@ -275,8 +275,15 @@ def get_ydl_opts():
                     'android',          # Android 客户端
                 ],
                 'player_skip': ['configs', 'webpage'],
+                # 尝试绕过 bot 检测
+                'visitor_data': None,  # 让 yt-dlp 自动生成
+                'po_token': None,      # 让 yt-dlp 自动生成
             }
         },
+        # 增加重试次数
+        'extractor_retries': 5,
+        'file_access_retries': 3,
+        'fragment_retries': 3,
         'format_sort': [
             'quality', 'res', 'fps', 
             'hdr:12', 'vcodec:avc', 'acodec:mp4a'
