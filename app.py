@@ -18,12 +18,17 @@ from flask_cors import CORS
 # ── yt-dlp ──
 import yt_dlp
 
-# ── Invidious 备用服务器列表 ──
+# ── Invidious 备用服务器列表（定期更新）──
 INVIDIOUS_INSTANCES = [
-    'https://yewtu.be',
-    'https://invidious.privacyredirect.com',
+    'https://invidious.tiekoetter.com',
+    'https://invidious.kavin.rocks',
+    'https://invidious.slipfox.xyz',
+    'https://yt.artemislena.eu',
+    'https://invidious.private.coffee',
+    'https://invidious.protokolla.info',
+    'https://invidious.denolet.com',
     'https://inv.nadeko.net',
-    'https://invidious.lunar.icu',
+    'https://yewtu.be',
 ]
 
 def get_video_info_via_invidious(url):
