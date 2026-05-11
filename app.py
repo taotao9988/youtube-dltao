@@ -330,16 +330,23 @@ def get_video_info(url):
             
     except Exception as e:
         print(f'  ! yt-dlp failed: {e}')
-        print('  → Trying Invidious backup...')
         
-        # 备用：通过 Invidious 获取
+        # 备用1：通过 Invidious 获取
+        print('  → Trying Invidious backup...')
         inv_info = get_video_info_via_invidious(url)
         if inv_info:
             print('  ✓ Invidious worked!')
             return inv_info
-        else:
-            print('  ✗ All methods failed')
-            return None
+        
+        # 备用2：通过 Piped 获取
+        print('  → Trying Piped backup...')
+        piped_info = get_video_info_via_piped(url)
+        if piped_info:
+            print('  ✓ Piped worked!')
+            return piped_info
+        
+        print('  ✗ All methods failed')
+        return None
 
     # 整理格式（每个分辨率只保留最好的）
     best = {}
